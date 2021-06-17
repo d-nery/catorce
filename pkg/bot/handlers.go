@@ -9,6 +9,29 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+func (b *Bot) HandleHelp(m *tb.Message) {
+	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New help request received")
+	helpMsg := `CATORCE!
+
+2. No grupo, comece uma nova partida com /new
+C. Para se juntar a uma partida use /join
+4ª O jogo deve ter pelo menos 2 e no máximo 10 jogadores antes de começar
+* Para jogar. Digite @catorce_uno_bot na caixa de mensagens ou clique no via @catorce_uno_bot ao lado das mensagens. Aguarde um pouco e você verá suas cartas. Cartas cinzas não podem ser jogadas. Se você não estiver na sua vez, todas as cartas serão cinzas.
+110 Selecionar uma carta cinza irá mostrar a atual situação do jogo.
+7- Ao ficar com uma unica carta sobrando, lembre-se de apertar no CATORCE!
+
+Jogadores não podem entrar após a partida começar. Caso um jogador demore mais que 6 horas pra jogar ele é um babaca.
+Caso o bot entre em colapso, não se preocupe, o estado do jogo é salvo e ao reiniciar, o bot recupera esse savepoint ;)
+
+Outros comandos (NYI):
+/stats - Mostra dados sobre os jogos do grupo interessantes
+/statsself - Mostra seus dados apenas
+/scoreboard - Placar dos jogadores
+/kill - F bot (adm only)`
+
+	b.tb.Send(m.Chat, helpMsg)
+}
+
 func (b *Bot) HandleNew(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New game request received")
 
@@ -189,6 +212,10 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 			}
 			return
 		}
+
+		if g.HasPendingCatorce() {
+			b.tb.Send(&tb.Chat{ID: chat}, "Última carta!", b.catorceBtnMarkup)
+		}
 	} else {
 		var card *deck.Card
 
@@ -329,11 +356,10 @@ func (b *Bot) HandleCatorce(c *tb.Callback) {
 	if err := g.FireEvent(&game.EvtCatorce{Player: player}); err != nil {
 		b.logger.Error().Err(err).Int64("chat_id", m.Chat.ID).Send()
 		switch err {
-		case game.ErrEventNotCovered:
 		case game.ErrWrongPlayer:
 			return
 		default:
-			b.tb.Edit(m, "Não chamou catorce a tempo :(")
+			b.tb.Edit(m, "Última carta!\nNão chamou catorce a tempo :(")
 		}
 		return
 	}

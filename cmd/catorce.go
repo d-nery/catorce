@@ -37,6 +37,10 @@ func main() {
 		return
 	}
 
+	b.Load()
 	b.SetupHandlers()
+
+	// b.Dump()
+
 	b.Start()
 }

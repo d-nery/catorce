@@ -56,7 +56,8 @@ func (rb *ResultBuilder) AddGameInfo(g *game.Game) *ResultBuilder {
 	}
 
 	res.SetContent(&tb.InputTextMessageContent{
-		Text: g.GameInfo(),
+		Text:      g.GameInfo(),
+		ParseMode: tb.ModeMarkdown,
 	})
 
 	rb.results = append(rb.results, res)
@@ -103,7 +104,7 @@ func (rb *ResultBuilder) AddCard(g *game.Game, c *deck.Card, can_play bool) *Res
 		res.ID = fmt.Sprintf("cantplay:%s", c.UID())
 		res.SetContent(&tb.InputTextMessageContent{
 			Text:      g.GameInfo(),
-			ParseMode: "Markdown",
+			ParseMode: tb.ModeMarkdown,
 		})
 	}
 
@@ -130,7 +131,8 @@ func (rb *ResultBuilder) AddCurrentPlayerHand(g *game.Game) *ResultBuilder {
 
 	res.Description = desc
 	res.SetContent(&tb.InputTextMessageContent{
-		Text: g.GameInfo(),
+		Text:      g.GameInfo(),
+		ParseMode: tb.ModeMarkdown,
 	})
 
 	rb.results = append(rb.results, res)
@@ -140,16 +142,16 @@ func (rb *ResultBuilder) AddCurrentPlayerHand(g *game.Game) *ResultBuilder {
 
 func (rb *ResultBuilder) AddColors() *ResultBuilder {
 	for k, c := range deck.Colors {
-		if c == &deck.BLACK {
+		if c == deck.BLACK {
 			continue
 		}
 
 		res := &tb.ArticleResult{}
 		res.ID = fmt.Sprintf("color:%s", k)
 		res.Title = "Escolha uma cor!"
-		res.Description = deck.COLOR_ICONS[*c]
+		res.Description = deck.COLOR_ICONS[c]
 		res.SetContent(&tb.InputTextMessageContent{
-			Text: deck.COLOR_ICONS[*c],
+			Text: deck.COLOR_ICONS[c],
 		})
 
 		rb.results = append(rb.results, res)

@@ -8,51 +8,54 @@ import (
 type Color string
 
 var (
-	RED    Color = "r"
-	GREEN  Color = "g"
-	BLUE   Color = "b"
-	YELLOW Color = "y"
-	BLACK  Color = "x"
+	RED      Color = "r"
+	GREEN    Color = "g"
+	BLUE     Color = "b"
+	YELLOW   Color = "y"
+	BLACK    Color = "x"
+	CINVALID Color = "-"
 )
 
-var Colors = map[string]*Color{
-	"r": &RED, "g": &GREEN,
-	"b": &BLUE, "y": &YELLOW,
-	"x": &BLACK,
+var Colors = map[string]Color{
+	"r": RED, "g": GREEN,
+	"b": BLUE, "y": YELLOW,
+	"x": BLACK,
 }
 
 type CardValue int
 
 var (
-	ZERO    CardValue = 0
-	ONE     CardValue = 1
-	TWO     CardValue = 2
-	THREE   CardValue = 3
-	FOUR    CardValue = 4
-	FIVE    CardValue = 5
-	SIX     CardValue = 6
-	SEVEN   CardValue = 7
-	EIGHT   CardValue = 8
-	NINE    CardValue = 9
-	DRAW    CardValue = 10
-	REVERSE CardValue = 11
-	SKIP    CardValue = 12
+	ZERO     CardValue = 0
+	ONE      CardValue = 1
+	TWO      CardValue = 2
+	THREE    CardValue = 3
+	FOUR     CardValue = 4
+	FIVE     CardValue = 5
+	SIX      CardValue = 6
+	SEVEN    CardValue = 7
+	EIGHT    CardValue = 8
+	NINE     CardValue = 9
+	DRAW     CardValue = 10
+	REVERSE  CardValue = 11
+	SKIP     CardValue = 12
+	VINVALID CardValue = -1
 )
 
-var CardValues = map[int]*CardValue{
-	0: &ZERO, 1: &ONE, 2: &TWO, 3: &THREE, 4: &FOUR, 5: &FIVE,
-	6: &SIX, 7: &SEVEN, 8: &EIGHT, 9: &NINE, 10: &DRAW, 11: &REVERSE, 12: &SKIP,
+var CardValues = map[int]CardValue{
+	0: ZERO, 1: ONE, 2: TWO, 3: THREE, 4: FOUR, 5: FIVE,
+	6: SIX, 7: SEVEN, 8: EIGHT, 9: NINE, 10: DRAW, 11: REVERSE, 12: SKIP,
 }
 
 type SpecialCard string
 
 var (
-	JOKER SpecialCard = "joker"
-	DFOUR SpecialCard = "p4"
+	JOKER    SpecialCard = "joker"
+	DFOUR    SpecialCard = "p4"
+	SINVALID SpecialCard = "-"
 )
 
-var SpecialCards = map[string]*SpecialCard{
-	"joker": &JOKER, "p4": &DFOUR,
+var SpecialCards = map[string]SpecialCard{
+	"joker": JOKER, "p4": DFOUR,
 }
 
 var STICKER_MAP = map[string]string{
@@ -186,25 +189,25 @@ var COLOR_ICONS = map[Color]string{
 }
 
 type Card struct {
-	Color   *Color
-	Value   *CardValue
-	Special *SpecialCard
+	Color   Color
+	Value   CardValue
+	Special SpecialCard
 }
 
-func NewCard(color *Color, value *CardValue, special *SpecialCard) Card {
-	if color == nil {
+func NewCard(color Color, value CardValue, special SpecialCard) Card {
+	if color == CINVALID {
 		log.Println("Trying to create a card without a color, defaulting to black")
-		color = &BLACK
+		color = BLACK
 	}
 
-	if value != nil && special != nil {
+	if value != VINVALID && special != SINVALID {
 		log.Println("Trying to create a card with both a value and special, value will be discarded")
-		value = nil
+		value = VINVALID
 	}
 
-	if value == nil && special == nil {
+	if value == VINVALID && special == SINVALID {
 		log.Println("Trying to create a card with neither a value nor special, value will default to 0")
-		value = &ZERO
+		value = ZERO
 	}
 
 	return Card{
@@ -214,7 +217,7 @@ func NewCard(color *Color, value *CardValue, special *SpecialCard) Card {
 	}
 }
 
-func (c *Card) SetColor(clr *Color) {
+func (c *Card) SetColor(clr Color) {
 	if c.IsSpecial() {
 		c.Color = clr
 	}
@@ -222,42 +225,42 @@ func (c *Card) SetColor(clr *Color) {
 
 func (c *Card) String() string {
 	if c.IsSpecial() {
-		return string(*c.Special)
+		return string(c.Special)
 	}
 
-	return fmt.Sprintf("%s_%d", *c.Color, *c.Value)
+	return fmt.Sprintf("%s_%d", c.Color, c.Value)
 }
 
 func (c *Card) StringPretty() string {
 	if c.IsSpecial() {
-		return fmt.Sprintf("%s %s", COLOR_ICONS[*c.Color], *c.Special)
+		return fmt.Sprintf("%s %s", COLOR_ICONS[c.Color], c.Special)
 	}
 
-	if *c.Value < DRAW {
-		return fmt.Sprintf("%s %d", COLOR_ICONS[*c.Color], *c.Value)
+	if c.Value < DRAW {
+		return fmt.Sprintf("%s %d", COLOR_ICONS[c.Color], c.Value)
 	}
 
-	if c.Value == &DRAW {
-		return fmt.Sprintf("%s +2", COLOR_ICONS[*c.Color])
+	if c.Value == DRAW {
+		return fmt.Sprintf("%s +2", COLOR_ICONS[c.Color])
 	}
 
-	if c.Value == &REVERSE {
-		return fmt.Sprintf("%s 🔃", COLOR_ICONS[*c.Color])
+	if c.Value == REVERSE {
+		return fmt.Sprintf("%s 🔃", COLOR_ICONS[c.Color])
 	}
 
-	return fmt.Sprintf("%s 🚫", COLOR_ICONS[*c.Color])
+	return fmt.Sprintf("%s 🚫", COLOR_ICONS[c.Color])
 }
 
 func (c *Card) IsSpecial() bool {
-	return c.Special != nil
+	return c.Special != SINVALID
 }
 
 func (c *Card) GetValue() CardValue {
-	return *c.Value
+	return c.Value
 }
 
 func (c *Card) GetSpecial() SpecialCard {
-	return *c.Special
+	return c.Special
 }
 
 func (c *Card) Sticker() string {
@@ -282,8 +285,8 @@ func (c *Card) StickerNotAvailable() string {
 
 func (c *Card) CanPlayOnTop(c2 *Card, draw_pending bool) bool {
 	if draw_pending {
-		if c2.Value == &DRAW {
-			return c.Value == &DRAW
+		if c2.Value == DRAW {
+			return c.Value == DRAW
 		}
 
 		return false
@@ -302,9 +305,9 @@ func (c *Card) Score() int {
 		return 50
 	}
 
-	if *c.Value > DRAW {
+	if c.Value > DRAW {
 		return 20
 	}
 
-	return int(*c.Value)
+	return int(c.Value)
 }

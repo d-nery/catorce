@@ -34,7 +34,7 @@ type EvtCardPlayed struct {
 
 type EvtColorChosen struct {
 	Player *Player
-	Color  *deck.Color
+	Color  deck.Color
 }
 
 type EvtDrawCard struct {

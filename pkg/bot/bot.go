@@ -2,6 +2,7 @@ package bot
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -14,6 +15,7 @@ type Bot struct {
 	tb      *tb.Bot
 	Games   map[int64]*game.Game // Maps chats to games
 	Players map[int]int64        // Maps players to chats
+	stats   OverallStats
 
 	catorceBtnMarkup *tb.ReplyMarkup
 	logger           zerolog.Logger
@@ -33,6 +35,7 @@ func New(token string, logger zerolog.Logger) (*Bot, error) {
 		tb:      b,
 		Games:   make(map[int64]*game.Game),
 		Players: make(map[int]int64),
+		stats:   make(OverallStats),
 
 		logger: logger,
 	}, nil
@@ -44,6 +47,7 @@ func (b *Bot) SetupHandlers() {
 	b.catorceBtnMarkup.Inline(b.catorceBtnMarkup.Row(btnCatorce))
 
 	b.tb.Handle("/new", b.HandleNew)
+	b.tb.Handle("/help", b.HandleHelp)
 	b.tb.Handle("/join", b.HandleJoin)
 	b.tb.Handle("/start", b.HandleStart)
 	b.tb.Handle(tb.OnChosenInlineResult, b.HandleResult)
@@ -54,6 +58,32 @@ func (b *Bot) SetupHandlers() {
 	// 	b.logger.Printf("STICKER %+v", m.Sticker)
 	// 	b.tb.Send(m.Chat, m.Sticker.FileID)
 	// })
+}
+
+func (b *Bot) Load() {
+	body, err := ioutil.ReadFile("data/data.json")
+
+	if err != nil {
+		b.logger.Error().Err(err).Msg("Failed to load")
+		return
+	}
+
+	err = json.Unmarshal(body, b)
+
+	if err != nil {
+		b.logger.Error().Err(err).Msg("Failed to load")
+		return
+	}
+
+	b.stats, err = ReadStatsFromFile("data/stats.json")
+
+	if err != nil {
+		b.logger.Error().Err(err).Msg("Failed to load")
+	}
+
+	for _, g := range b.Games {
+		g.SetLogger(b.logger)
+	}
 }
 
 func (b *Bot) Persist() {
@@ -68,6 +98,26 @@ func (b *Bot) Persist() {
 
 	if err != nil {
 		b.logger.Error().Err(err).Msg("Failed to persist")
+	}
+
+	if b.stats.Persist("data/stats.json") != nil {
+		b.logger.Error().Err(err).Msg("Failed to persist stats")
+	}
+}
+
+func (b *Bot) Dump() {
+	body, err := json.MarshalIndent(b, "", "  ")
+
+	if err != nil {
+		b.logger.Error().Err(err).Msg("Failed to persist")
+		return
+	}
+
+	fmt.Println(string(body))
+
+	if b.stats.Dump() != nil {
+		b.logger.Error().Err(err).Msg("Failed to persist")
+		return
 	}
 }
 

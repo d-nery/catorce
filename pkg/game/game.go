@@ -44,6 +44,10 @@ func New(chat int64, logger zerolog.Logger) *Game {
 	}
 }
 
+func (g *Game) SetLogger(logger zerolog.Logger) {
+	g.logger = logger.With().Int64("game_chat_id", g.Chat).Logger()
+}
+
 func (g *Game) CurrentPlayer() *Player {
 	return g.Players.Value.(*Player)
 }
@@ -173,7 +177,7 @@ func (g *Game) DistributeCards() {
 		return
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 7; i++ {
 		g.Players.Do(func(i interface{}) {
 			p := i.(*Player)
 			card := g.Deck.Draw()
@@ -260,11 +264,13 @@ func (g *Game) EndTurn(jump bool) bool {
 	g.Rounds += 1
 	g.logger.Trace().Int("pid", g.CurrentPlayer().ID).Int("rounds", g.Rounds).Msg("Ending turn")
 	if len(g.CurrentPlayer().Hand) == 0 {
+		g.logger.Trace().Int("pid", g.CurrentPlayer().ID).Msg("Player has 0 cards")
 		g.State = LOBBY
 		return true
 	}
 
 	if len(g.CurrentPlayer().Hand) == 1 {
+		g.logger.Trace().Int("pid", g.CurrentPlayer().ID).Msg("Player has 1 card left, setting catorce")
 		g.PlayerCatorce = g.CurrentPlayer()
 	}
 
@@ -284,10 +290,10 @@ func (g *Game) Reverse() {
 	g.Reversed = !g.Reversed
 }
 
-func (g *Game) ChooseColor(c *deck.Color) {
+func (g *Game) ChooseColor(c deck.Color) {
 	// We change the card color to the chosen color, this only
 	// affects special cards, so we don't see it as they are always black
-	g.logger.Trace().Str("color", string(*c)).Msg("Setting card color")
+	g.logger.Trace().Str("color", string(c)).Msg("Setting card color")
 	g.CurrentCard.SetColor(c)
 	g.EndTurn(false)
 }
@@ -353,6 +359,38 @@ func (g *Game) GameInfo() string {
 	fmt.Fprintf(&out, "Cartas na pilha: %d", g.Deck.Available())
 
 	return out.String()
+}
+
+func (g *Game) UnmarshalJSON(data []byte) error {
+	type Alias Game
+
+	v := &struct {
+		Players []*Player
+		*Alias
+	}{
+		Alias: (*Alias)(g),
+	}
+
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+
+	for _, p := range v.Players {
+		if g.Players == nil {
+			g.Players = ring.New(1)
+			g.Players.Value = p
+			continue
+		}
+
+		r := ring.New(1)
+		r.Value = p
+
+		g.Players = g.Players.Prev()
+		g.Players = g.Players.Link(r)
+	}
+
+	g.PlayerCatorce = nil
+	return nil
 }
 
 func (g *Game) MarshalJSON() ([]byte, error) {

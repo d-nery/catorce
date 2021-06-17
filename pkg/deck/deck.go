@@ -18,17 +18,17 @@ func New() *Deck {
 	}
 
 	for _, color := range Colors {
-		if color == &BLACK {
+		if color == BLACK {
 			continue
 		}
 
 		for _, value := range CardValues {
-			card := NewCard(color, value, nil)
+			card := NewCard(color, value, SINVALID)
 
 			deck.Cards = append(deck.Cards, &card)
 
-			if value != &ZERO {
-				card2 := NewCard(color, value, nil)
+			if value != ZERO {
+				card2 := NewCard(color, value, SINVALID)
 				deck.Cards = append(deck.Cards, &card2)
 			}
 		}
@@ -36,7 +36,7 @@ func New() *Deck {
 
 	for _, special := range SpecialCards {
 		for i := 0; i < 4; i++ {
-			card := NewCard(&BLACK, nil, special)
+			card := NewCard(BLACK, VINVALID, special)
 			deck.Cards = append(deck.Cards, &card)
 		}
 	}
@@ -89,7 +89,7 @@ func (d *Deck) FillFromGraveyard() {
 func (d *Deck) Discard(c *Card) {
 	// Return card to black when discarded
 	if c.IsSpecial() {
-		c.SetColor(&BLACK)
+		c.SetColor(BLACK)
 	}
 
 	d.Graveyard = append(d.Graveyard, c)
