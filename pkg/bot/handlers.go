@@ -106,7 +106,7 @@ func (b *Bot) HandleStart(m *tb.Message) {
 
 	b.tb.Send(m.Chat, "Começando!")
 	b.tb.Send(m.Chat, g.CurrentCardSticker())
-	b.tb.Send(m.Chat, fmt.Sprintf("Jogador(a) Atual: %s", g.CurrentPlayer().NameWithMention()), tb.ParseMode("Markdown"))
+	b.tb.Send(m.Chat, fmt.Sprintf("Jogador(a) Atual: %s", g.CurrentPlayer().NameWithMention()), tb.ModeMarkdown)
 
 	b.Persist()
 }
@@ -159,7 +159,7 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 					"Oh no! 😱\n%s não chamou CATORCE! a tempo e pegou 4 cartas!",
 					catorce.NameWithMention(),
 				),
-				tb.ParseMode("Markdown"),
+				tb.ModeMarkdown,
 			)
 		}
 	} else if res_id == "pass" {
@@ -233,22 +233,27 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 					"Oh no! 😱\n%s não chamou CATORCE! a tempo e pegou 4 cartas!",
 					catorce.NameWithMention(),
 				),
-				tb.ParseMode("Markdown"),
+				tb.ModeMarkdown,
 			)
 		}
 	}
 
 	// If we returned to lobby, then game is over
 	if g.GetState() == game.LOBBY {
-		b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Jogo finalizado!!: Vitória de %s", g.CurrentPlayer().NameWithMention()), tb.ParseMode("Markdown"))
+		b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Jogo finalizado!!: Vitória de %s", g.CurrentPlayer().NameWithMention()), tb.ModeMarkdown)
 		b.logger.Trace().Msg("game returned to lobby, deleting")
 		delete(b.Games, chat)
+		for k := range b.Players {
+			if b.Players[k] == chat {
+				delete(b.Players, k)
+			}
+		}
 		b.logger.Trace().Int("games_len", len(b.Games)).Send()
 		b.Persist()
 		return
 	}
 
-	b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Próximo(a) jogador(a): %s", g.CurrentPlayer().NameWithMention()), tb.ParseMode("Markdown"))
+	b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Próximo(a) jogador(a): %s", g.CurrentPlayer().NameWithMention()), tb.ModeMarkdown)
 
 	if g.GetState() == game.CHOOSE_COLOR {
 		b.tb.Send(&tb.Chat{ID: chat}, "Escolha uma cor!")
@@ -323,10 +328,17 @@ func (b *Bot) HandleCatorce(c *tb.Callback) {
 
 	if err := g.FireEvent(&game.EvtCatorce{Player: player}); err != nil {
 		b.logger.Error().Err(err).Int64("chat_id", m.Chat.ID).Send()
+		switch err {
+		case game.ErrEventNotCovered:
+		case game.ErrWrongPlayer:
+			return
+		default:
+			b.tb.Edit(m, "Não chamou catorce a tempo :(")
+		}
 		return
 	}
 
 	b.tb.Respond(c, &tb.CallbackResponse{Text: "CATORCE!"})
-	b.tb.Send(m.Chat, fmt.Sprintf("%s chamou CATORCE!", player.Name))
+	b.tb.Edit(m, fmt.Sprintf("Última carta!\n%s chamou CATORCE!", player.Name))
 	b.Persist()
 }

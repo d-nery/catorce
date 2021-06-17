@@ -173,6 +173,11 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 			return ErrNoCatorcePending
 		}
 
+		if e.Player != g.CatorcePlayer() {
+			g.logger.Trace().Msg("ErrWrongPlayer for EvtCatorce")
+			return ErrWrongPlayer
+		}
+
 		g.PlayerCatorce = nil
 		return nil
 
