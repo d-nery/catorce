@@ -6,15 +6,15 @@ import (
 )
 
 type Deck struct {
-	cards     []*Card
-	graveyard []*Card
+	Cards     []*Card
+	Graveyard []*Card
 }
 
 func New() *Deck {
 	// Thre are 108 cards in the official deck -> 25 each color + 8 black
 	deck := Deck{
-		cards:     make([]*Card, 0, 108),
-		graveyard: make([]*Card, 0, 108),
+		Cards:     make([]*Card, 0, 108),
+		Graveyard: make([]*Card, 0, 108),
 	}
 
 	for _, color := range Colors {
@@ -25,11 +25,11 @@ func New() *Deck {
 		for _, value := range CardValues {
 			card := NewCard(color, value, nil)
 
-			deck.cards = append(deck.cards, &card)
+			deck.Cards = append(deck.Cards, &card)
 
 			if value != &ZERO {
 				card2 := NewCard(color, value, nil)
-				deck.cards = append(deck.cards, &card2)
+				deck.Cards = append(deck.Cards, &card2)
 			}
 		}
 	}
@@ -37,7 +37,7 @@ func New() *Deck {
 	for _, special := range SpecialCards {
 		for i := 0; i < 4; i++ {
 			card := NewCard(&BLACK, nil, special)
-			deck.cards = append(deck.cards, &card)
+			deck.Cards = append(deck.Cards, &card)
 		}
 	}
 
@@ -45,31 +45,31 @@ func New() *Deck {
 }
 
 func (d *Deck) Shuffle() {
-	rand.Shuffle(len(d.cards), func(i, j int) {
-		d.cards[i], d.cards[j] = d.cards[j], d.cards[i]
+	rand.Shuffle(len(d.Cards), func(i, j int) {
+		d.Cards[i], d.Cards[j] = d.Cards[j], d.Cards[i]
 	})
 }
 
 func (d *Deck) Print() {
 	fmt.Println("Cards:")
 
-	for _, c := range d.cards {
+	for _, c := range d.Cards {
 		fmt.Printf("%v\n", c)
 	}
 
 	fmt.Println("Graveyard:")
 
-	for _, c := range d.graveyard {
+	for _, c := range d.Graveyard {
 		fmt.Printf("%v\n", c)
 	}
 }
 
 func (d *Deck) Available() int {
-	return len(d.cards)
+	return len(d.Cards)
 }
 
 func (d *Deck) Discarded() int {
-	return len(d.graveyard)
+	return len(d.Graveyard)
 }
 
 func (d *Deck) FillFromGraveyard() {
@@ -77,10 +77,10 @@ func (d *Deck) FillFromGraveyard() {
 		return
 	}
 
-	for len(d.graveyard) > 0 {
-		card := d.graveyard[0]
-		d.cards = append(d.cards, card)
-		d.graveyard = d.graveyard[1:]
+	for len(d.Graveyard) > 0 {
+		card := d.Graveyard[0]
+		d.Cards = append(d.Cards, card)
+		d.Graveyard = d.Graveyard[1:]
 	}
 
 	d.Shuffle()
@@ -92,7 +92,7 @@ func (d *Deck) Discard(c *Card) {
 		c.SetColor(&BLACK)
 	}
 
-	d.graveyard = append(d.graveyard, c)
+	d.Graveyard = append(d.Graveyard, c)
 }
 
 func (d *Deck) Draw() *Card {
@@ -104,7 +104,7 @@ func (d *Deck) Draw() *Card {
 		return nil
 	}
 
-	card := d.cards[0]
-	d.cards = d.cards[1:]
+	card := d.Cards[0]
+	d.Cards = d.Cards[1:]
 	return card
 }

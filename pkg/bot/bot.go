@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"time"
 
 	"github.com/d-nery/catorce/pkg/game"
@@ -10,8 +12,8 @@ import (
 
 type Bot struct {
 	tb      *tb.Bot
-	games   map[int64]*game.Game // Maps chats to games
-	players map[int]int64        // Maps players to chats
+	Games   map[int64]*game.Game // Maps chats to games
+	Players map[int]int64        // Maps players to chats
 
 	catorceBtnMarkup *tb.ReplyMarkup
 	logger           zerolog.Logger
@@ -29,8 +31,8 @@ func New(token string, logger zerolog.Logger) (*Bot, error) {
 
 	return &Bot{
 		tb:      b,
-		games:   make(map[int64]*game.Game),
-		players: make(map[int]int64),
+		Games:   make(map[int64]*game.Game),
+		Players: make(map[int]int64),
 
 		logger: logger,
 	}, nil
@@ -52,6 +54,21 @@ func (b *Bot) SetupHandlers() {
 	// 	b.logger.Printf("STICKER %+v", m.Sticker)
 	// 	b.tb.Send(m.Chat, m.Sticker.FileID)
 	// })
+}
+
+func (b *Bot) Persist() {
+	body, err := json.Marshal(b)
+
+	if err != nil {
+		b.logger.Error().Err(err).Msg("Failed to persist")
+		return
+	}
+
+	err = ioutil.WriteFile("data/data.json", body, 0644)
+
+	if err != nil {
+		b.logger.Error().Err(err).Msg("Failed to persist")
+	}
 }
 
 func (b *Bot) Start() {

@@ -2,6 +2,7 @@ package game
 
 import (
 	"container/ring"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -13,15 +14,15 @@ import (
 )
 
 type Game struct {
-	chat           int64
-	players        *ring.Ring
-	deck           *deck.Deck
-	reversed       bool
-	state          GameState
-	draw_count     int
-	current_card   *deck.Card
-	player_catorce *Player
-	rounds         int
+	Chat          int64
+	Players       *ring.Ring
+	Deck          *deck.Deck
+	Reversed      bool
+	State         GameState
+	DrawCount     int
+	CurrentCard   *deck.Card
+	PlayerCatorce *Player
+	Rounds        int
 
 	logger zerolog.Logger
 }
@@ -29,32 +30,32 @@ type Game struct {
 func New(chat int64, logger zerolog.Logger) *Game {
 	logger.Trace().Int64("chat", chat).Msg("Creating new game")
 	return &Game{
-		chat:           chat,
-		players:        nil,
-		reversed:       false,
-		deck:           deck.New(),
-		state:          LOBBY,
-		draw_count:     0,
-		current_card:   nil,
-		player_catorce: nil,
-		rounds:         0,
+		Chat:          chat,
+		Players:       nil,
+		Reversed:      false,
+		Deck:          deck.New(),
+		State:         LOBBY,
+		DrawCount:     0,
+		CurrentCard:   nil,
+		PlayerCatorce: nil,
+		Rounds:        0,
 
 		logger: logger.With().Int64("game_chat_id", chat).Logger(),
 	}
 }
 
 func (g *Game) CurrentPlayer() *Player {
-	return g.players.Value.(*Player)
+	return g.Players.Value.(*Player)
 }
 
 func (g *Game) PlayerList() []*Player {
-	if g.players == nil {
+	if g.Players == nil {
 		return nil
 	}
 
-	players := make([]*Player, 0, g.players.Len())
+	players := make([]*Player, 0, g.Players.Len())
 
-	g.players.Do(func(i interface{}) {
+	g.Players.Do(func(i interface{}) {
 		players = append(players, i.(*Player))
 	})
 
@@ -64,7 +65,7 @@ func (g *Game) PlayerList() []*Player {
 func (g *Game) GetPlayer(id int) *Player {
 	var player *Player
 
-	g.players.Do(func(i interface{}) {
+	g.Players.Do(func(i interface{}) {
 		if i.(*Player).ID == id {
 			player = i.(*Player)
 		}
@@ -74,34 +75,34 @@ func (g *Game) GetPlayer(id int) *Player {
 }
 
 func (g *Game) PlayerAmount() int {
-	return g.players.Len()
+	return g.Players.Len()
 }
 
 func (g *Game) AddPlayer(p *Player) {
 	g.logger.Trace().Msg("Adding player")
-	if g.state != LOBBY {
+	if g.State != LOBBY {
 		g.logger.Trace().Msg("Failed: can't add player outside of lobby")
 		return
 	}
 
-	if g.players == nil {
+	if g.Players == nil {
 		g.logger.Trace().Int("id", p.ID).Msg("No players, adding first")
-		g.players = ring.New(1)
-		g.players.Value = p
+		g.Players = ring.New(1)
+		g.Players.Value = p
 		return
 	}
 
 	r := ring.New(1)
 	r.Value = p
 
-	g.players = g.players.Prev()
-	g.players = g.players.Link(r)
+	g.Players = g.Players.Prev()
+	g.Players = g.Players.Link(r)
 
 	if g.logger.GetLevel() <= zerolog.TraceLevel {
 		var out strings.Builder
 
 		fmt.Fprint(&out, "Current order: ")
-		g.players.Do(func(i interface{}) {
+		g.Players.Do(func(i interface{}) {
 			fmt.Fprintf(&out, "%d, ", i.(*Player).ID)
 		})
 		g.logger.Trace().Msg(out.String())
@@ -116,9 +117,9 @@ func (g *Game) ShufflePlayers() {
 		players[i], players[j] = players[j], players[i]
 	})
 
-	g.players.Value = players[0]
+	g.Players.Value = players[0]
 	i := 1
-	for p := g.players.Next(); p != g.players; p = p.Next() {
+	for p := g.Players.Next(); p != g.Players; p = p.Next() {
 		p.Value = players[i]
 		i += 1
 	}
@@ -127,7 +128,7 @@ func (g *Game) ShufflePlayers() {
 		var out strings.Builder
 
 		fmt.Fprint(&out, "Current order: ")
-		g.players.Do(func(i interface{}) {
+		g.Players.Do(func(i interface{}) {
 			fmt.Fprintf(&out, "%d, ", i.(*Player).ID)
 		})
 		g.logger.Trace().Msg(out.String())
@@ -136,46 +137,46 @@ func (g *Game) ShufflePlayers() {
 
 func (g *Game) PlayFirstCard() {
 	g.logger.Trace().Msg("Playing first card")
-	if g.current_card != nil {
+	if g.CurrentCard != nil {
 		return
 	}
 
-	g.current_card = g.deck.Draw()
+	g.CurrentCard = g.Deck.Draw()
 
 	// Can't start with a special card
-	for g.current_card.IsSpecial() {
-		g.logger.Trace().Str("card", g.current_card.String()).Msg("Got special card, redrawing")
-		g.deck.Discard(g.current_card)
-		g.current_card = g.deck.Draw()
+	for g.CurrentCard.IsSpecial() {
+		g.logger.Trace().Str("card", g.CurrentCard.String()).Msg("Got special card, redrawing")
+		g.Deck.Discard(g.CurrentCard)
+		g.CurrentCard = g.Deck.Draw()
 	}
 
-	g.logger.Trace().Str("card", g.current_card.String()).Msg("First card played")
+	g.logger.Trace().Str("card", g.CurrentCard.String()).Msg("First card played")
 
-	switch g.current_card.Value() {
+	switch g.CurrentCard.GetValue() {
 	case deck.SKIP:
-		g.EndTurn()
+		g.EndTurn(false)
 	case deck.DRAW:
-		g.draw_count += 2
+		g.DrawCount += 2
 	case deck.REVERSE:
 		if g.PlayerAmount() != 2 {
 			g.Reverse()
 		} else {
-			g.EndTurn()
+			g.EndTurn(false)
 		}
 	}
 }
 
 func (g *Game) DistributeCards() {
 	g.logger.Trace().Msg("Distributing cards")
-	if g.state != LOBBY {
+	if g.State != LOBBY {
 		g.logger.Trace().Msg("Failed, can't distribute cards outside lobby")
 		return
 	}
 
 	for i := 0; i < 2; i++ {
-		g.players.Do(func(i interface{}) {
+		g.Players.Do(func(i interface{}) {
 			p := i.(*Player)
-			card := g.deck.Draw()
+			card := g.Deck.Draw()
 			p.AddCard(card)
 		})
 	}
@@ -185,146 +186,160 @@ func (g *Game) PlayCard(c *deck.Card) {
 	g.logger.Trace().Msg("Playing card")
 
 	if g.HasPendingCatorce() {
-		g.logger.Trace().Msg("There's a pending catorce!")
+		g.logger.Trace().Str("player_name", g.PlayerCatorce.Name).Msg("There's a pending catorce!")
 		for i := 0; i < 4; i++ {
-			card := g.deck.Draw()
-			g.player_catorce.AddCard(card)
+			card := g.Deck.Draw()
+			g.PlayerCatorce.AddCard(card)
 		}
-		g.player_catorce = nil
+		g.PlayerCatorce = nil
 	}
 
-	g.deck.Discard(g.current_card)
-	g.current_card = c
+	g.Deck.Discard(g.CurrentCard)
+	g.CurrentCard = c
 
 	if c.IsSpecial() {
-		switch c.Special() {
+		switch c.GetSpecial() {
 		case deck.DFOUR:
-			g.draw_count += 4
+			g.DrawCount += 4
 		}
 
-		g.logger.Debug().Str("from", string(g.state)).Str("to", "CHOOSE_COLOR").Msg("Changing state")
-		g.state = CHOOSE_COLOR
+		g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_COLOR").Msg("Changing state")
+		g.State = CHOOSE_COLOR
 		return
 	}
 
-	switch c.Value() {
+	jump := false
+
+	switch c.GetValue() {
 	case deck.SKIP:
-		g.EndTurn()
+		jump = true
 	case deck.DRAW:
-		g.draw_count += 2
+		g.DrawCount += 2
 	case deck.REVERSE:
 		if g.PlayerAmount() != 2 {
 			g.Reverse()
 		} else {
-			g.EndTurn()
+			jump = true
 		}
 	}
 
-	g.EndTurn()
+	g.EndTurn(jump)
 }
 
 func (g *Game) DrawCard() {
 	g.logger.Trace().Msg("Drawing a card")
 
-	if g.draw_count == 0 {
-		card := g.deck.Draw()
+	if g.HasPendingCatorce() {
+		g.logger.Trace().Str("player_name", g.PlayerCatorce.Name).Msg("There's a pending catorce!")
+		for i := 0; i < 4; i++ {
+			card := g.Deck.Draw()
+			g.PlayerCatorce.AddCard(card)
+		}
+		g.PlayerCatorce = nil
+	}
+
+	if g.DrawCount == 0 {
+		card := g.Deck.Draw()
 		g.CurrentPlayer().AddCard(card)
-		g.logger.Debug().Str("from", string(g.state)).Str("to", "DREW").Msg("Changing state")
-		g.state = DREW
+		g.logger.Debug().Str("from", string(g.State)).Str("to", "DREW").Msg("Changing state")
+		g.State = DREW
 		return
 	}
 
-	for i := 0; i < g.draw_count; i++ {
-		card := g.deck.Draw()
+	for i := 0; i < g.DrawCount; i++ {
+		card := g.Deck.Draw()
 		g.CurrentPlayer().AddCard(card)
 	}
 
-	g.draw_count = 0
-	g.EndTurn()
+	g.DrawCount = 0
+	g.EndTurn(false)
 }
 
 // EndTurn finishes the turn, returns true if the game is over
-func (g *Game) EndTurn() bool {
-	g.rounds += 1
-	g.logger.Trace().Int("pid", g.CurrentPlayer().ID).Int("rounds", g.rounds).Msg("Ending turn")
+func (g *Game) EndTurn(jump bool) bool {
+	g.Rounds += 1
+	g.logger.Trace().Int("pid", g.CurrentPlayer().ID).Int("rounds", g.Rounds).Msg("Ending turn")
 	if len(g.CurrentPlayer().Hand) == 0 {
-		g.state = LOBBY
+		g.State = LOBBY
 		return true
 	}
 
 	if len(g.CurrentPlayer().Hand) == 1 {
-		g.player_catorce = g.CurrentPlayer()
+		g.PlayerCatorce = g.CurrentPlayer()
 	}
 
-	g.players = g.NextPlayer()
+	g.Players = g.NextPlayer()
+	if jump {
+		g.Players = g.NextPlayer()
+	}
 
-	g.logger.Debug().Str("from", string(g.state)).Str("to", "CHOOSE_CARD").Msg("Changing state")
-	g.state = CHOOSE_CARD
+	g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
+	g.State = CHOOSE_CARD
 
 	return false
 }
 
 func (g *Game) Reverse() {
 	g.logger.Trace().Msg("Reversing game")
-	g.reversed = !g.reversed
+	g.Reversed = !g.Reversed
 }
 
 func (g *Game) ChooseColor(c *deck.Color) {
 	// We change the card color to the chosen color, this only
 	// affects special cards, so we don't see it as they are always black
 	g.logger.Trace().Str("color", string(*c)).Msg("Setting card color")
-	g.current_card.SetColor(c)
-	g.EndTurn()
+	g.CurrentCard.SetColor(c)
+	g.EndTurn(false)
 }
 
 func (g *Game) NextPlayer() *ring.Ring {
 	g.logger.Trace().Msg("Moving to next player")
-	if g.reversed {
-		return g.players.Prev()
+	if g.Reversed {
+		return g.Players.Prev()
 	}
 
-	return g.players.Next()
+	return g.Players.Next()
 }
 
-func (g *Game) CurrentCard() *deck.Card {
-	return g.current_card
+func (g *Game) GetCurrentCard() *deck.Card {
+	return g.CurrentCard
 }
 
 func (g *Game) GetDeck() *deck.Deck {
-	return g.deck
+	return g.Deck
 }
 
-func (g *Game) State() GameState {
-	return g.state
+func (g *Game) GetState() GameState {
+	return g.State
 }
 
 func (g *Game) DrawCounter() int {
-	return g.draw_count
+	return g.DrawCount
 }
 
 func (g *Game) ResetDrawCounter() {
 	g.logger.Trace().Msg("Resetting draw counter")
-	g.draw_count = 0
+	g.DrawCount = 0
 }
 
 func (g *Game) CurrentCardSticker() *tb.Sticker {
 	return &tb.Sticker{
-		File: tb.File{FileID: g.CurrentCard().Sticker()},
+		File: tb.File{FileID: g.GetCurrentCard().Sticker()},
 	}
 }
 
 func (g *Game) HasPendingCatorce() bool {
-	return g.player_catorce != nil
+	return g.PlayerCatorce != nil
 }
 
 func (g *Game) CatorcePlayer() *Player {
-	return g.player_catorce
+	return g.PlayerCatorce
 }
 
 func (g *Game) GameInfo() string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "Jogador atual: %s\n", g.CurrentPlayer().NameWithMention())
-	fmt.Fprintf(&out, "Última carta: %s\n", g.CurrentCard().StringPretty())
+	fmt.Fprintf(&out, "Última carta: %s\n", g.GetCurrentCard().StringPretty())
 	fmt.Fprint(&out, "Próximos Jogadores:\n")
 
 	for _, p := range g.PlayerList() {
@@ -335,7 +350,18 @@ func (g *Game) GameInfo() string {
 		fmt.Fprintf(&out, " • %s \\[%d carta(s)]\n", p.Name, len(p.Hand))
 	}
 
-	fmt.Fprintf(&out, "Cartas na pilha: %d", g.deck.Available())
+	fmt.Fprintf(&out, "Cartas na pilha: %d", g.Deck.Available())
 
 	return out.String()
+}
+
+func (g *Game) MarshalJSON() ([]byte, error) {
+	type Alias Game
+	return json.Marshal(&struct {
+		Players []*Player
+		*Alias
+	}{
+		Players: g.PlayerList(),
+		Alias:   (*Alias)(g),
+	})
 }

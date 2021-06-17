@@ -186,9 +186,9 @@ var COLOR_ICONS = map[Color]string{
 }
 
 type Card struct {
-	color   *Color
-	value   *CardValue
-	special *SpecialCard
+	Color   *Color
+	Value   *CardValue
+	Special *SpecialCard
 }
 
 func NewCard(color *Color, value *CardValue, special *SpecialCard) Card {
@@ -208,56 +208,56 @@ func NewCard(color *Color, value *CardValue, special *SpecialCard) Card {
 	}
 
 	return Card{
-		color:   color,
-		value:   value,
-		special: special,
+		Color:   color,
+		Value:   value,
+		Special: special,
 	}
 }
 
 func (c *Card) SetColor(clr *Color) {
 	if c.IsSpecial() {
-		c.color = clr
+		c.Color = clr
 	}
 }
 
 func (c *Card) String() string {
 	if c.IsSpecial() {
-		return string(*c.special)
+		return string(*c.Special)
 	}
 
-	return fmt.Sprintf("%s_%d", *c.color, *c.value)
+	return fmt.Sprintf("%s_%d", *c.Color, *c.Value)
 }
 
 func (c *Card) StringPretty() string {
 	if c.IsSpecial() {
-		return fmt.Sprintf("%s %s", COLOR_ICONS[*c.color], *c.special)
+		return fmt.Sprintf("%s %s", COLOR_ICONS[*c.Color], *c.Special)
 	}
 
-	if *c.value < DRAW {
-		return fmt.Sprintf("%s %d", COLOR_ICONS[*c.color], *c.value)
+	if *c.Value < DRAW {
+		return fmt.Sprintf("%s %d", COLOR_ICONS[*c.Color], *c.Value)
 	}
 
-	if c.value == &DRAW {
-		return fmt.Sprintf("%s +2", COLOR_ICONS[*c.color])
+	if c.Value == &DRAW {
+		return fmt.Sprintf("%s +2", COLOR_ICONS[*c.Color])
 	}
 
-	if c.value == &REVERSE {
-		return fmt.Sprintf("%s 🔃", COLOR_ICONS[*c.color])
+	if c.Value == &REVERSE {
+		return fmt.Sprintf("%s 🔃", COLOR_ICONS[*c.Color])
 	}
 
-	return fmt.Sprintf("%s 🚫", COLOR_ICONS[*c.color])
+	return fmt.Sprintf("%s 🚫", COLOR_ICONS[*c.Color])
 }
 
 func (c *Card) IsSpecial() bool {
-	return c.special != nil
+	return c.Special != nil
 }
 
-func (c *Card) Value() CardValue {
-	return *c.value
+func (c *Card) GetValue() CardValue {
+	return *c.Value
 }
 
-func (c *Card) Special() SpecialCard {
-	return *c.special
+func (c *Card) GetSpecial() SpecialCard {
+	return *c.Special
 }
 
 func (c *Card) Sticker() string {
@@ -282,14 +282,14 @@ func (c *Card) StickerNotAvailable() string {
 
 func (c *Card) CanPlayOnTop(c2 *Card, draw_pending bool) bool {
 	if draw_pending {
-		if c2.value == &DRAW {
-			return c.value == &DRAW
+		if c2.Value == &DRAW {
+			return c.Value == &DRAW
 		}
 
 		return false
 	}
 
-	return c.IsSpecial() || c.value == c2.value || c.color == c2.color
+	return c.IsSpecial() || c.Value == c2.Value || c.Color == c2.Color
 }
 
 func (c *Card) UID() string {
@@ -302,9 +302,9 @@ func (c *Card) Score() int {
 		return 50
 	}
 
-	if *c.value > DRAW {
+	if *c.Value > DRAW {
 		return 20
 	}
 
-	return int(*c.value)
+	return int(*c.Value)
 }

@@ -60,11 +60,11 @@ var (
 )
 
 func (g *Game) FireEvent(evt interface{}) EventError {
-	g.logger.Debug().Str("event", fmt.Sprintf("%T", evt)).Str("current_state", string(g.state)).Msg("New event received")
+	g.logger.Debug().Str("event", fmt.Sprintf("%T", evt)).Str("current_state", string(g.State)).Msg("New event received")
 
 	switch e := evt.(type) {
 	case *EvtStartGame:
-		if g.state != LOBBY {
+		if g.State != LOBBY {
 			g.logger.Trace().Msg("ErrEventNotCovered for EvtStartGame")
 			return ErrEventNotCovered
 		}
@@ -74,17 +74,17 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 			return ErrNotEnoughPlayers
 		}
 
-		g.deck.Shuffle()
+		g.Deck.Shuffle()
 		g.ShufflePlayers()
 		g.DistributeCards()
 		g.PlayFirstCard()
 
-		g.logger.Debug().Str("from", string(g.state)).Str("to", "CHOOSE_CARD").Msg("Changing state")
-		g.state = CHOOSE_CARD
+		g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
+		g.State = CHOOSE_CARD
 		return nil
 
 	case *EvtAddPlayer:
-		if g.state != LOBBY {
+		if g.State != LOBBY {
 			g.logger.Trace().Msg("ErrEventNotCovered for EvtAddPlayer")
 			return ErrEventNotCovered
 		}
@@ -98,7 +98,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		return nil
 
 	case *EvtCardPlayed:
-		if g.state != CHOOSE_CARD && g.state != DREW {
+		if g.State != CHOOSE_CARD && g.State != DREW {
 			g.logger.Trace().Msg("ErrEventNotCovered for EvtCardPlayed")
 			return ErrEventNotCovered
 		}
@@ -109,8 +109,8 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		}
 
 		c := e.Card
-		if !c.CanPlayOnTop(g.CurrentCard(), g.DrawCounter() > 0) {
-			g.logger.Trace().Str("card", c.String()).Str("current", g.CurrentCard().String()).Msg("ErrCantPlayCard for EvtCardPlayed")
+		if !c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0) {
+			g.logger.Trace().Str("card", c.String()).Str("current", g.GetCurrentCard().String()).Msg("ErrCantPlayCard for EvtCardPlayed")
 			return ErrCantPlayCard
 		}
 
@@ -120,7 +120,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		return nil
 
 	case *EvtDrawCard:
-		if g.state != CHOOSE_CARD {
+		if g.State != CHOOSE_CARD {
 			g.logger.Trace().Msg("ErrEventNotCovered for EvtDrawCard")
 			return ErrEventNotCovered
 		}
@@ -136,34 +136,34 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		return nil
 
 	case *EvtPass:
-		if g.state != DREW {
+		if g.State != DREW {
 			g.logger.Trace().Msg("ErrEventNotCovered for EvtPass")
 			return ErrEventNotCovered
 		}
 
-		g.EndTurn()
+		g.EndTurn(false)
 		return nil
 
 	case *EvtColorChosen:
-		if g.state != CHOOSE_COLOR {
+		if g.State != CHOOSE_COLOR {
 			g.logger.Trace().Msg("ErrEventNotCovered for EvtColorChosen")
 			return ErrEventNotCovered
 		}
 
-		if !g.CurrentCard().IsSpecial() {
+		if !g.GetCurrentCard().IsSpecial() {
 			g.logger.Trace().Msg("ErrCantChooseColor for EvtColorChosen")
 			return ErrCantChooseColor
 		}
 
-		g.current_card.SetColor(e.Color)
-		if !g.EndTurn() {
-			g.logger.Debug().Str("from", string(g.state)).Str("to", "CHOOSE_CARD").Msg("Changing state")
-			g.state = CHOOSE_CARD
+		g.CurrentCard.SetColor(e.Color)
+		if !g.EndTurn(false) {
+			g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
+			g.State = CHOOSE_CARD
 		}
 		return nil
 
 	case *EvtCatorce:
-		if g.state != CHOOSE_CARD {
+		if g.State != CHOOSE_CARD {
 			g.logger.Trace().Msg("ErrEventNotCovered for EvtCatorce")
 			return ErrEventNotCovered
 		}
@@ -173,7 +173,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 			return ErrNoCatorcePending
 		}
 
-		g.player_catorce = nil
+		g.PlayerCatorce = nil
 		return nil
 
 	default:

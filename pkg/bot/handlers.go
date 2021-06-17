@@ -17,15 +17,15 @@ func (b *Bot) HandleNew(m *tb.Message) {
 		return
 	}
 
-	if _, ok := b.games[m.Chat.ID]; ok {
+	if _, ok := b.Games[m.Chat.ID]; ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Game already exists")
 		b.tb.Send(m.Chat, "Já tem um jogo rolando nesse chat!")
 		return
 	}
 
-	b.games[m.Chat.ID] = game.New(m.Chat.ID, b.logger)
+	b.Games[m.Chat.ID] = game.New(m.Chat.ID, b.logger)
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("New game created")
-	b.logger.Trace().Int("games_len", len(b.games)).Send()
+	b.logger.Trace().Int("games_len", len(b.Games)).Send()
 	b.tb.Send(m.Chat, "Jogo criado com sucesso!\n/join para entrar.")
 }
 
@@ -37,19 +37,19 @@ func (b *Bot) HandleJoin(m *tb.Message) {
 		return
 	}
 
-	if _, ok := b.games[m.Chat.ID]; !ok {
+	if _, ok := b.Games[m.Chat.ID]; !ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No game running on this chat")
 		b.tb.Send(m.Chat, "Não há nenhum jogo nesse chat! /new para criar um")
 		return
 	}
 
-	if _, ok := b.players[m.Sender.ID]; ok {
+	if _, ok := b.Players[m.Sender.ID]; ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Player already in a game")
 		b.tb.Send(m.Chat, "Você já está participando de algum jogo!")
 		return
 	}
 
-	g := b.games[m.Chat.ID]
+	g := b.Games[m.Chat.ID]
 	if err := g.FireEvent(&game.EvtAddPlayer{Player: game.NewPlayer(m.Sender.ID, m.Sender)}); err != nil {
 		b.logger.Error().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Err(err).Send()
 		switch err {
@@ -62,7 +62,7 @@ func (b *Bot) HandleJoin(m *tb.Message) {
 		return
 	}
 
-	b.players[m.Sender.ID] = m.Chat.ID
+	b.Players[m.Sender.ID] = m.Chat.ID
 
 	var out strings.Builder
 	out.WriteString("Entrando no jogo... Jogadores atuais:\n")
@@ -82,13 +82,13 @@ func (b *Bot) HandleStart(m *tb.Message) {
 		return
 	}
 
-	if _, ok := b.games[m.Chat.ID]; !ok {
+	if _, ok := b.Games[m.Chat.ID]; !ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No game running on this chat")
 		b.tb.Send(m.Chat, "Não há nenhum jogo nesse chat! /new para criar um")
 		return
 	}
 
-	g := b.games[m.Chat.ID]
+	g := b.Games[m.Chat.ID]
 	if err := g.FireEvent(&game.EvtStartGame{}); err != nil {
 		b.logger.Error().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Err(err).Send()
 		switch err {
@@ -107,22 +107,24 @@ func (b *Bot) HandleStart(m *tb.Message) {
 	b.tb.Send(m.Chat, "Começando!")
 	b.tb.Send(m.Chat, g.CurrentCardSticker())
 	b.tb.Send(m.Chat, fmt.Sprintf("Jogador(a) Atual: %s", g.CurrentPlayer().NameWithMention()), tb.ParseMode("Markdown"))
+
+	b.Persist()
 }
 
 func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 	b.logger.Info().Int("user_id", c.From.ID).Msg("New Inline Result received")
 	b.logger.Trace().Msgf("CHOSE INLINE => %+v", c)
 
-	if _, ok := b.players[c.From.ID]; !ok {
+	if _, ok := b.Players[c.From.ID]; !ok {
 		return
 	}
 
-	chat := b.players[c.From.ID]
-	if _, ok := b.games[chat]; !ok {
+	chat := b.Players[c.From.ID]
+	if _, ok := b.Games[chat]; !ok {
 		return
 	}
 
-	g := b.games[chat]
+	g := b.Games[chat]
 	res_id := c.ResultID
 
 	b.logger.Info().Int("user_id", c.From.ID).Int64("chat_id", chat).Str("chosen", res_id).Msg("Chosen result")
@@ -136,6 +138,7 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 	player := g.GetPlayer(c.From.ID)
 
 	if res_id == "draw" {
+		catorce := g.CatorcePlayer()
 		if err := g.FireEvent(&game.EvtDrawCard{Player: player}); err != nil {
 			b.logger.Error().Err(err).Int64("chat_id", chat).Send()
 			switch err {
@@ -146,6 +149,18 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 				b.tb.Send(&c.From, "Erro :(")
 			}
 			return
+		}
+
+		// If there was a catorce player and the cards were succesfully drawn
+		// then the catorce'd player received four cards, we need to warn them
+		if catorce != nil {
+			b.tb.Send(&tb.Chat{ID: chat},
+				fmt.Sprintf(
+					"Oh no! 😱\n%s não chamou CATORCE! a tempo e pegou 4 cartas!",
+					catorce.NameWithMention(),
+				),
+				tb.ParseMode("Markdown"),
+			)
 		}
 	} else if res_id == "pass" {
 		if err := g.FireEvent(&game.EvtPass{Player: player}); err != nil {
@@ -216,26 +231,30 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 			b.tb.Send(&tb.Chat{ID: chat},
 				fmt.Sprintf(
 					"Oh no! 😱\n%s não chamou CATORCE! a tempo e pegou 4 cartas!",
-					g.CurrentPlayer().NameWithMention(),
+					catorce.NameWithMention(),
 				),
+				tb.ParseMode("Markdown"),
 			)
 		}
 	}
 
 	// If we returned to lobby, then game is over
-	if g.State() == game.LOBBY {
-		b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Jogo finalizado!!: Vitória de %s", g.CurrentPlayer().NameWithMention()))
+	if g.GetState() == game.LOBBY {
+		b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Jogo finalizado!!: Vitória de %s", g.CurrentPlayer().NameWithMention()), tb.ParseMode("Markdown"))
 		b.logger.Trace().Msg("game returned to lobby, deleting")
-		delete(b.games, chat)
-		b.logger.Trace().Int("games_len", len(b.games)).Send()
+		delete(b.Games, chat)
+		b.logger.Trace().Int("games_len", len(b.Games)).Send()
+		b.Persist()
 		return
 	}
 
-	b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Próximo(a) jogador(a): %s", g.CurrentPlayer().NameWithMention()))
+	b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Próximo(a) jogador(a): %s", g.CurrentPlayer().NameWithMention()), tb.ParseMode("Markdown"))
 
-	if g.State() == game.CHOOSE_COLOR {
+	if g.GetState() == game.CHOOSE_COLOR {
 		b.tb.Send(&tb.Chat{ID: chat}, "Escolha uma cor!")
 	}
+
+	b.Persist()
 }
 
 func (b *Bot) HandleQuery(q *tb.Query) {
@@ -244,9 +263,9 @@ func (b *Bot) HandleQuery(q *tb.Query) {
 
 	results := Results()
 
-	if chat, ok := b.players[q.From.ID]; !ok {
+	if chat, ok := b.Players[q.From.ID]; !ok {
 		results.AddNotPlaying()
-	} else if g, ok := b.games[chat]; !ok {
+	} else if g, ok := b.Games[chat]; !ok {
 		results.AddGameNotStarted()
 		b.logger.Info().Int64("chat_id", chat).Msg("No game running on this chat")
 		return
@@ -262,18 +281,18 @@ func (b *Bot) HandleQuery(q *tb.Query) {
 			for _, c := range player.Hand {
 				results.AddCard(g, c, false)
 			}
-		} else if g.State() == game.CHOOSE_CARD || g.State() == game.DREW {
-			if g.State() == game.CHOOSE_CARD {
+		} else if g.GetState() == game.CHOOSE_CARD || g.GetState() == game.DREW {
+			if g.GetState() == game.CHOOSE_CARD {
 				results.AddDraw(g.DrawCounter())
-			} else if g.State() == game.DREW {
+			} else if g.GetState() == game.DREW {
 				results.AddPass()
 			}
 
 			for _, c := range player.Hand {
-				can_play := c.CanPlayOnTop(g.CurrentCard(), g.DrawCounter() > 0)
+				can_play := c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0)
 				results.AddCard(g, c, can_play)
 			}
-		} else if g.State() == game.CHOOSE_COLOR {
+		} else if g.GetState() == game.CHOOSE_COLOR {
 			results.AddColors()
 			results.AddCurrentPlayerHand(g)
 		}
@@ -294,12 +313,12 @@ func (b *Bot) HandleCatorce(c *tb.Callback) {
 	m := c.Message
 	b.logger.Info().Int("user_id", c.Sender.ID).Int64("chat", m.Chat.ID).Msg("New Handle Catorce")
 
-	if _, ok := b.games[m.Chat.ID]; !ok {
+	if _, ok := b.Games[m.Chat.ID]; !ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No game running on this chat")
 		return
 	}
 
-	g := b.games[m.Chat.ID]
+	g := b.Games[m.Chat.ID]
 	player := g.GetPlayer(c.Sender.ID)
 
 	if err := g.FireEvent(&game.EvtCatorce{Player: player}); err != nil {
@@ -307,5 +326,7 @@ func (b *Bot) HandleCatorce(c *tb.Callback) {
 		return
 	}
 
-	b.tb.Send(m.Chat, "CATORCE!")
+	b.tb.Respond(c, &tb.CallbackResponse{Text: "CATORCE!"})
+	b.tb.Send(m.Chat, fmt.Sprintf("%s chamou CATORCE!", player.Name))
+	b.Persist()
 }

@@ -118,12 +118,15 @@ func (rb *ResultBuilder) AddCurrentPlayerHand(g *game.Game) *ResultBuilder {
 	res.ID = "hand"
 
 	desc := ""
+	if len(g.CurrentPlayer().Hand) == 0 {
+		desc = "Vazia :)"
+	} else {
+		for _, c := range g.CurrentPlayer().Hand {
+			desc += fmt.Sprintf("%s, ", c.StringPretty())
+		}
 
-	for _, c := range g.CurrentPlayer().Hand {
-		desc += fmt.Sprintf("%s, ", c.StringPretty())
+		desc = desc[:len(desc)-2]
 	}
-
-	desc = desc[:len(desc)-2]
 
 	res.Description = desc
 	res.SetContent(&tb.InputTextMessageContent{
