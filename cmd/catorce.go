@@ -17,7 +17,7 @@ func main() {
 		Timestamp().
 		Caller().
 		Logger().
-		Level(zerolog.TraceLevel)
+		Level(zerolog.InfoLevel)
 
 	err := godotenv.Load()
 

@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 
@@ -13,6 +14,12 @@ type Player struct {
 	Name     string
 	Username string
 	Hand     []*deck.Card
+
+	// Current game stats, are added to overall when game is over
+	CatorcesCalled int
+	CatorcesMissed int
+	CardsPlayed    int
+	AvgRespTime    time.Duration
 }
 
 func NewPlayer(id int, user *tb.User) *Player {
@@ -40,10 +47,25 @@ func (p *Player) RemoveCard(c *deck.Card) {
 
 func (p *Player) NameWithMention() string {
 	if p.Username == "" {
-		return fmt.Sprintf("*%s*", p.Name)
+		return fmt.Sprintf("[%s](tg://user?id=%d)", p.Name, p.ID)
 	}
 
 	return fmt.Sprintf("*%s* (@%s)", p.Name, p.Username)
+}
+
+// Adds new turn duration to the average, should be called afer incrementing amount of cards played
+func (p *Player) AddDuration(t time.Duration) {
+	p.AvgRespTime = time.Duration((int64(p.CardsPlayed-1)*p.AvgRespTime.Nanoseconds() + t.Nanoseconds()) / int64(p.CardsPlayed))
+}
+
+func (p *Player) CurrentHandPoints() int {
+	sum := 0
+
+	for _, c := range p.Hand {
+		sum += c.Score()
+	}
+
+	return sum
 }
 
 func (p *Player) PrintHand() {

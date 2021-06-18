@@ -23,11 +23,10 @@ C. Para se juntar a uma partida use /join
 Jogadores não podem entrar após a partida começar. Caso um jogador demore mais que 6 horas pra jogar ele é um babaca.
 Caso o bot entre em colapso, não se preocupe, o estado do jogo é salvo e ao reiniciar, o bot recupera esse savepoint ;)
 
-Outros comandos (NYI):
+Outros comandos:
 /stats - Mostra dados sobre os jogos do grupo interessantes
 /statsself - Mostra seus dados apenas
-/scoreboard - Placar dos jogadores
-/kill - F bot (adm only)`
+/kill - F bot (adm only) (NYI)`
 
 	b.tb.Send(m.Chat, helpMsg)
 }
@@ -47,8 +46,18 @@ func (b *Bot) HandleNew(m *tb.Message) {
 	}
 
 	b.Games[m.Chat.ID] = game.New(m.Chat.ID, b.logger)
+
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("New game created")
 	b.logger.Trace().Int("games_len", len(b.Games)).Send()
+
+	if _, ok := b.stats[m.Chat.ID]; !ok {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No stats for current chat, creating")
+		b.stats[m.Chat.ID] = &ChatStats{
+			Group:   GroupStats{},
+			Players: make(map[int]*PlayerStats),
+		}
+	}
+
 	b.tb.Send(m.Chat, "Jogo criado com sucesso!\n/join para entrar.")
 }
 
@@ -119,7 +128,7 @@ func (b *Bot) HandleStart(m *tb.Message) {
 			b.tb.Send(m.Chat, "Não há jogadores suficientes! /join para entrar.")
 			return
 		case game.ErrEventNotCovered:
-			b.tb.Send(m.Chat, "Não há nenhum jogo nesse chat! /new para criar um")
+			b.tb.Send(m.Chat, "Opa, acho que o jogo já começou!")
 			return
 		default:
 			b.tb.Send(m.Chat, "Erro :(")
@@ -267,8 +276,17 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 
 	// If we returned to lobby, then game is over
 	if g.GetState() == game.LOBBY {
-		b.tb.Send(&tb.Chat{ID: chat}, fmt.Sprintf("Jogo finalizado!!: Vitória de %s", g.CurrentPlayer().NameWithMention()), tb.ModeMarkdown)
+		b.tb.Send(&tb.Chat{ID: chat},
+			fmt.Sprintf(
+				"Jogo finalizado após %d rounds!!\nVitória de %s",
+				g.Rounds,
+				g.CurrentPlayer().NameWithMention(),
+			),
+			tb.ModeMarkdown,
+		)
+
 		b.logger.Trace().Msg("game returned to lobby, deleting")
+		b.SaveGameStats(g)
 		delete(b.Games, chat)
 		for k := range b.Players {
 			if b.Players[k] == chat {
@@ -276,6 +294,7 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 			}
 		}
 		b.logger.Trace().Int("games_len", len(b.Games)).Send()
+
 		b.Persist()
 		return
 	}
@@ -366,5 +385,66 @@ func (b *Bot) HandleCatorce(c *tb.Callback) {
 
 	b.tb.Respond(c, &tb.CallbackResponse{Text: "CATORCE!"})
 	b.tb.Edit(m, fmt.Sprintf("Última carta!\n%s chamou CATORCE!", player.Name))
+	player.CatorcesCalled += 1
 	b.Persist()
+}
+
+func (b *Bot) HandleStats(m *tb.Message) {
+	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New stats request received")
+
+	if !m.FromGroup() {
+		b.tb.Send(m.Sender, "Esse comando só funciona em grupos!")
+		return
+	}
+
+	if _, ok := b.stats[m.Chat.ID]; !ok {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("No stats for this chat")
+		b.tb.Send(m.Chat, "Não encontrei estatísticas para esse chat! Tente terminar um jogo primeiro")
+		return
+	}
+
+	cs := b.stats[m.Chat.ID]
+	gs := cs.Group
+	// ps := b.stats[m.Chat.ID].Players
+
+	_, err := b.tb.Send(m.Chat, gs.Report(), tb.ModeMarkdown)
+
+	if err != nil {
+		b.logger.Error().Err(err).Int64("chat_id", m.Chat.ID).Send()
+	}
+
+	_, err = b.tb.Send(m.Chat, cs.Ranking(), tb.ModeMarkdown)
+
+	if err != nil {
+		b.logger.Error().Err(err).Int64("chat_id", m.Chat.ID).Send()
+	}
+}
+
+func (b *Bot) HandleSelfStats(m *tb.Message) {
+	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New self stats request received")
+
+	if !m.FromGroup() {
+		b.tb.Send(m.Sender, "Esse comando só funciona em grupos!")
+		return
+	}
+
+	if _, ok := b.stats[m.Chat.ID]; !ok {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("No stats for this chat")
+		b.tb.Send(m.Chat, "Não encontrei estatísticas para esse chat! Tente terminar um jogo primeiro")
+		return
+	}
+
+	ps := b.stats[m.Chat.ID].Players
+
+	if _, ok := ps[m.Sender.ID]; !ok {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("No stats for this chat")
+		b.tb.Send(m.Chat, "Não encontrei estatísticas para você esse chat! Tente terminar um jogo primeiro")
+		return
+	}
+
+	_, err := b.tb.Send(m.Chat, ps[m.Sender.ID].Report(), tb.ModeMarkdown)
+
+	if err != nil {
+		b.logger.Error().Err(err).Int64("chat_id", m.Chat.ID).Send()
+	}
 }

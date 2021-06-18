@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 
@@ -22,7 +23,14 @@ type Game struct {
 	DrawCount     int
 	CurrentCard   *deck.Card
 	PlayerCatorce *Player
-	Rounds        int
+
+	TurnStarted time.Time
+
+	// Current game stats, are added to overall when game is over
+	Rounds              int
+	P2Sequence          int
+	P4Played            int
+	LargestResponseTime time.Duration
 
 	logger zerolog.Logger
 }
@@ -39,6 +47,9 @@ func New(chat int64, logger zerolog.Logger) *Game {
 		CurrentCard:   nil,
 		PlayerCatorce: nil,
 		Rounds:        0,
+		P2Sequence:    0,
+		P4Played:      0,
+		TurnStarted:   time.Time{},
 
 		logger: logger.With().Int64("game_chat_id", chat).Logger(),
 	}
@@ -168,6 +179,8 @@ func (g *Game) PlayFirstCard() {
 			g.EndTurn(false)
 		}
 	}
+
+	g.TurnStarted = time.Now()
 }
 
 func (g *Game) DistributeCards() {
@@ -191,11 +204,21 @@ func (g *Game) PlayCard(c *deck.Card) {
 
 	if g.HasPendingCatorce() {
 		g.logger.Trace().Str("player_name", g.PlayerCatorce.Name).Msg("There's a pending catorce!")
+		g.PlayerCatorce.CatorcesMissed += 1
+
 		for i := 0; i < 4; i++ {
 			card := g.Deck.Draw()
 			g.PlayerCatorce.AddCard(card)
 		}
 		g.PlayerCatorce = nil
+	}
+
+	g.CurrentPlayer().CardsPlayed += 1
+	turnDuration := time.Since(g.TurnStarted)
+	g.CurrentPlayer().AddDuration(turnDuration)
+
+	if turnDuration > g.LargestResponseTime {
+		g.LargestResponseTime = turnDuration
 	}
 
 	g.Deck.Discard(g.CurrentCard)
@@ -204,6 +227,7 @@ func (g *Game) PlayCard(c *deck.Card) {
 	if c.IsSpecial() {
 		switch c.GetSpecial() {
 		case deck.DFOUR:
+			g.P4Played += 1
 			g.DrawCount += 4
 		}
 
@@ -250,6 +274,10 @@ func (g *Game) DrawCard() {
 		return
 	}
 
+	if g.DrawCount > g.P2Sequence {
+		g.P2Sequence = g.DrawCount
+	}
+
 	for i := 0; i < g.DrawCount; i++ {
 		card := g.Deck.Draw()
 		g.CurrentPlayer().AddCard(card)
@@ -282,6 +310,7 @@ func (g *Game) EndTurn(jump bool) bool {
 	g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
 	g.State = CHOOSE_CARD
 
+	g.TurnStarted = time.Now()
 	return false
 }
 
@@ -344,7 +373,7 @@ func (g *Game) CatorcePlayer() *Player {
 
 func (g *Game) GameInfo() string {
 	var out strings.Builder
-	fmt.Fprintf(&out, "Jogador atual: %s\n", g.CurrentPlayer().NameWithMention())
+	fmt.Fprintf(&out, "Jogador atual: %s \\[%d]\n", g.CurrentPlayer().NameWithMention(), len(g.CurrentPlayer().Hand))
 	fmt.Fprintf(&out, "Última carta: %s\n", g.GetCurrentCard().StringPretty())
 	fmt.Fprint(&out, "Próximos Jogadores:\n")
 
@@ -353,10 +382,13 @@ func (g *Game) GameInfo() string {
 			continue
 		}
 
-		fmt.Fprintf(&out, " • %s \\[%d carta(s)]\n", p.Name, len(p.Hand))
+		fmt.Fprintf(&out, " • %s \\[%d]\n", p.Name, len(p.Hand))
 	}
 
-	fmt.Fprintf(&out, "Cartas na pilha: %d", g.Deck.Available())
+	fmt.Fprintf(&out, "Cartas na pilha: %d\n", g.Deck.Available())
+	if g.Reversed {
+		fmt.Fprintf(&out, "*Invertido*")
+	}
 
 	return out.String()
 }

@@ -50,6 +50,8 @@ func (b *Bot) SetupHandlers() {
 	b.tb.Handle("/help", b.HandleHelp)
 	b.tb.Handle("/join", b.HandleJoin)
 	b.tb.Handle("/start", b.HandleStart)
+	b.tb.Handle("/stats", b.HandleStats)
+	b.tb.Handle("/statsself", b.HandleSelfStats)
 	b.tb.Handle(tb.OnChosenInlineResult, b.HandleResult)
 	b.tb.Handle(tb.OnQuery, b.HandleQuery)
 	b.tb.Handle(&btnCatorce, b.HandleCatorce)
