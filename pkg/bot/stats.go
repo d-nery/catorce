@@ -135,7 +135,7 @@ func (gs *GroupStats) Report() string {
 	fmt.Fprintf(&out, "Total de Rounds: %d\n\n", gs.RoundsPlayed)
 	fmt.Fprintf(&out, "Maior sequência de +2: +%d\n", gs.P2Sequence)
 	fmt.Fprintf(&out, "Quantidade de +4 jogados: %d\n\n", gs.P4Played)
-	fmt.Fprintf(&out, "Maior tempo de resposta: %s", gs.LargestResponseTime)
+	fmt.Fprintf(&out, "Maior tempo de resposta: %s", gs.LargestResponseTime.Round(time.Minute))
 
 	return out.String()
 }
@@ -167,7 +167,7 @@ func (ps *PlayerStats) Report() string {
 	fmt.Fprintf(&out, "Total de pontos (menos é melhor): %d\n", ps.Points)
 	fmt.Fprintf(&out, "Total de cartas jogadas: %d\n", ps.CardsPlayed)
 	fmt.Fprintf(&out, "Catorces: %d/%d\n\n", ps.CatorcesCalled, ps.CatorcesCalled+ps.CatorcesMissed)
-	fmt.Fprintf(&out, "Tempo médio de resposta: %s", ps.AvgResponseTime)
+	fmt.Fprintf(&out, "Tempo médio de resposta: %s", ps.AvgResponseTime.Round(time.Second))
 
 	return out.String()
 }

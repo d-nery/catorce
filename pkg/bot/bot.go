@@ -14,7 +14,7 @@ import (
 var Version string = "DEV"
 
 // Bot is the main bot struct, it manages all running games and telegram communication
-// Should onlky be created via New
+// Should only be created via New
 type Bot struct {
 	tb      *tb.Bot
 	Games   map[int64]*game.Game // Maps chats to games

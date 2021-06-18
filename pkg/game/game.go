@@ -83,6 +83,7 @@ func (g *Game) GetPlayer(id int) *Player {
 	g.Players.Do(func(i interface{}) {
 		if i.(*Player).ID == id {
 			player = i.(*Player)
+			return
 		}
 	})
 
