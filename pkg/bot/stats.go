@@ -14,11 +14,13 @@ import (
 // OverallStats maps chat IDs to Stats
 type OverallStats map[int64]*ChatStats
 
+// ChatStats holds group and player's stats for the current group
 type ChatStats struct {
 	Group   GroupStats
 	Players map[int]*PlayerStats
 }
 
+// GroupStats holds group stats for a specific chat
 type GroupStats struct {
 	GamesPlayed         int
 	P2Sequence          int
@@ -27,6 +29,7 @@ type GroupStats struct {
 	LargestResponseTime time.Duration
 }
 
+// PlayerStats holds player stats for a specific chat
 type PlayerStats struct {
 	Name            string
 	GamesWon        int
@@ -38,6 +41,7 @@ type PlayerStats struct {
 	AvgResponseTime time.Duration
 }
 
+// ReadStatsFromFile loads OverallStats from a .json file
 func ReadStatsFromFile(file string) (OverallStats, error) {
 	os := OverallStats{}
 	body, err := ioutil.ReadFile(file)
@@ -50,6 +54,7 @@ func ReadStatsFromFile(file string) (OverallStats, error) {
 	return os, err
 }
 
+// Persist persists OverallStats into a .json file
 func (os *OverallStats) Persist(file string) error {
 	body, err := json.Marshal(os)
 
@@ -60,6 +65,7 @@ func (os *OverallStats) Persist(file string) error {
 	return ioutil.WriteFile(file, body, 0644)
 }
 
+// Persist dumps OverallStats to the terminal
 func (os *OverallStats) Dump() error {
 	body, err := json.MarshalIndent(os, "", "  ")
 
@@ -71,6 +77,7 @@ func (os *OverallStats) Dump() error {
 	return nil
 }
 
+// AddGameStats adds stats from the game to the GroupStats
 func (gs *GroupStats) AddGameStats(g *game.Game) {
 	gs.GamesPlayed += 1
 
@@ -86,6 +93,7 @@ func (gs *GroupStats) AddGameStats(g *game.Game) {
 	gs.RoundsPlayed += g.Rounds
 }
 
+// AddPlayerStats adds stats from the player to the PlayerStats
 func (ps *PlayerStats) AddPlayerStats(p *game.Player) {
 	ps.GamesPlayed += 1
 	if len(p.Hand) == 0 {
@@ -103,6 +111,8 @@ func (ps *PlayerStats) AddPlayerStats(p *game.Player) {
 	ps.CatorcesMissed += p.CatorcesMissed
 }
 
+// SaveGameStats saves game and player's stats to the Bot's overall stats
+// Should only be called after the game is finished
 func (b *Bot) SaveGameStats(g *game.Game) {
 	stats := b.stats[g.Chat]
 	stats.Group.AddGameStats(g)
@@ -114,9 +124,9 @@ func (b *Bot) SaveGameStats(g *game.Game) {
 
 		stats.Players[p.ID].AddPlayerStats(p)
 	}
-
 }
 
+// Report generates a Markdown formatted string with GroupStats report
 func (gs *GroupStats) Report() string {
 	var out strings.Builder
 
@@ -130,6 +140,7 @@ func (gs *GroupStats) Report() string {
 	return out.String()
 }
 
+// Ranking generates a Markdown formatted table chat ranking
 func (cs *ChatStats) Ranking() string {
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"Nome", "Pontos", "Jogos", "Média"})
@@ -146,6 +157,7 @@ func (cs *ChatStats) Ranking() string {
 	return "```\n" + t.Render() + "\n```"
 }
 
+// Report generates a Markdown formatted string with PlayerStats report
 func (ps *PlayerStats) Report() string {
 	var out strings.Builder
 

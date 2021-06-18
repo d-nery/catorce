@@ -7,6 +7,7 @@ import (
 
 type Color string
 
+// Possible colors
 var (
 	RED      Color = "r"
 	GREEN    Color = "g"
@@ -16,6 +17,7 @@ var (
 	CINVALID Color = "-"
 )
 
+// Color map from string representation to Color
 var Colors = map[string]Color{
 	"r": RED, "g": GREEN,
 	"b": BLUE, "y": YELLOW,
@@ -24,6 +26,7 @@ var Colors = map[string]Color{
 
 type CardValue int
 
+// Possible card values
 var (
 	ZERO     CardValue = 0
 	ONE      CardValue = 1
@@ -41,6 +44,7 @@ var (
 	VINVALID CardValue = -1
 )
 
+// Value map from int representation to CardValue
 var CardValues = map[int]CardValue{
 	0: ZERO, 1: ONE, 2: TWO, 3: THREE, 4: FOUR, 5: FIVE,
 	6: SIX, 7: SEVEN, 8: EIGHT, 9: NINE, 10: DRAW, 11: REVERSE, 12: SKIP,
@@ -48,16 +52,19 @@ var CardValues = map[int]CardValue{
 
 type SpecialCard string
 
+// Possible special cards
 var (
 	JOKER    SpecialCard = "joker"
 	DFOUR    SpecialCard = "p4"
 	SINVALID SpecialCard = "-"
 )
 
+// Value map from string representation to SpecialCard
 var SpecialCards = map[string]SpecialCard{
 	"joker": JOKER, "p4": DFOUR,
 }
 
+// This maps a card .String() representation to its sticker on telegram cache
 var STICKER_MAP = map[string]string{
 	"b_0":  "CAACAgEAAxkBAAIBK2DJkaZl4bmgI47DRWr6xkPuR7eHAALUAQACVZ9RRkWe-hVeuGjbHwQ",
 	"b_1":  "CAACAgEAAxkBAAIBLWDJka4R1V6-bf9iLC5oWLj1gE5hAAKeAgAC3_NIRkaHLYay2YL7HwQ",
@@ -119,6 +126,7 @@ var STICKER_MAP = map[string]string{
 	"p4":    "CAACAgEAAxkBAAIBo2DJlLH6hFL4xYJSsrkHI2GJhl2jAAJOAQACP1RJRt3qldF9Fq6VHwQ",
 }
 
+// This maps a card .String() representation to its faded sticker on telegram cache
 var FADED_STICKER_MAP = map[string]string{
 	"b_0":  "CAACAgEAAxkBAAIBpWDJlL2_QfqBatTVVcbTpA0EYsiiAAJQAQACZSpRRum0YZjn4IVbHwQ",
 	"b_1":  "CAACAgEAAxkBAAIBp2DJlMN-QgZC_hP3qJEV4ktlUTokAAL1AQAC7HBQRuXo-IDujvubHwQ",
@@ -180,6 +188,7 @@ var FADED_STICKER_MAP = map[string]string{
 	"p4":    "CAACAgEAAxkBAAIB92DJlXQ3uZjL0y1E7FG6VZGkuzVUAAJfAgACaJdJRsO9dzLwppwrHwQ",
 }
 
+// Color icons for textual representation
 var COLOR_ICONS = map[Color]string{
 	RED:    "🟥",
 	BLUE:   "🟦",
@@ -188,12 +197,15 @@ var COLOR_ICONS = map[Color]string{
 	BLACK:  "⬛",
 }
 
+// Card represents a single card in a UNO deck
 type Card struct {
 	Color   Color
 	Value   CardValue
 	Special SpecialCard
 }
 
+// NewCard instatiates a new card, it makes sure that only one of value or special are valid values
+// Defaults to Black 0
 func NewCard(color Color, value CardValue, special SpecialCard) Card {
 	if color == CINVALID {
 		log.Println("Trying to create a card without a color, defaulting to black")
@@ -217,12 +229,15 @@ func NewCard(color Color, value CardValue, special SpecialCard) Card {
 	}
 }
 
+// SetColor changes the card color
+// This is used when choosing a special card color for the next player
 func (c *Card) SetColor(clr Color) {
 	if c.IsSpecial() {
 		c.Color = clr
 	}
 }
 
+// Returns the simplified string representation of the card
 func (c *Card) String() string {
 	if c.IsSpecial() {
 		return string(c.Special)
@@ -231,6 +246,7 @@ func (c *Card) String() string {
 	return fmt.Sprintf("%s_%d", c.Color, c.Value)
 }
 
+// Returns the string representation of the card, with color icon and emojis
 func (c *Card) StringPretty() string {
 	if c.IsSpecial() {
 		return fmt.Sprintf("%s %s", COLOR_ICONS[c.Color], c.Special)
@@ -251,18 +267,22 @@ func (c *Card) StringPretty() string {
 	return fmt.Sprintf("%s 🚫", COLOR_ICONS[c.Color])
 }
 
+// IsSpecial checks if a card is special
 func (c *Card) IsSpecial() bool {
 	return c.Special != SINVALID
 }
 
+// GetValue returns the card value
 func (c *Card) GetValue() CardValue {
 	return c.Value
 }
 
+// GetSpecial returns the card special value
 func (c *Card) GetSpecial() SpecialCard {
 	return c.Special
 }
 
+// Sticker returns the card's sticker FileID
 func (c *Card) Sticker() string {
 	s, ok := STICKER_MAP[c.String()]
 
@@ -273,6 +293,7 @@ func (c *Card) Sticker() string {
 	return s
 }
 
+// StickerNotAvailable returns the card's faded sticker FileID
 func (c *Card) StickerNotAvailable() string {
 	s, ok := FADED_STICKER_MAP[c.String()]
 
@@ -283,23 +304,33 @@ func (c *Card) StickerNotAvailable() string {
 	return s
 }
 
+// CanPlayOnTop checks if c can be played on top of c2
+// If a draw is pending, only other DRAW cards can be played
 func (c *Card) CanPlayOnTop(c2 *Card, draw_pending bool) bool {
 	if draw_pending {
-		if c2.Value == DRAW {
-			return c.Value == DRAW
-		}
-
-		return false
+		return c2.Value == DRAW
 	}
 
 	return c.IsSpecial() || c.Value == c2.Value || c.Color == c2.Color
 }
 
+// UID returns the card Unique Identifier
+// We use the cards pointer address here as it's always unique and it
+// won't change during a game lifetime as we are moving the same card around Deck, Game and Players' hands
 func (c *Card) UID() string {
-	// Each card has a unique address so we can use it as a unique identifier
 	return fmt.Sprintf("%p", c)
 }
 
+// Score returns the card score value according to this table:
+//
+// | Card         | Value            |
+// | ------------ | ---------------- |
+// | Number Cards | Face Value (0-9) |
+// | Draw 2       | 20               |
+// | Reverse      | 20               |
+// | Skip         | 20               |
+// | Wild         | 50               |
+// | Draw Four    | 50               |
 func (c *Card) Score() int {
 	if c.IsSpecial() {
 		return 50

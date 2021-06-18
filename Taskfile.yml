@@ -1,0 +1,12 @@
+version: "3"
+
+tasks:
+  default:
+    deps: [build]
+
+  build:
+    cmds:
+      - go build -ldflags="-X github.com/d-nery/catorce/pkg/bot.Version={{.GIT_COMMIT}}" cmd/catorce.go
+    vars:
+      GIT_COMMIT:
+        sh: git log -n 1 --format=%h

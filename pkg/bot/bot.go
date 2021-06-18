@@ -11,6 +11,10 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+var Version string = "DEV"
+
+// Bot is the main bot struct, it manages all running games and telegram communication
+// Should onlky be created via New
 type Bot struct {
 	tb      *tb.Bot
 	Games   map[int64]*game.Game // Maps chats to games
@@ -21,6 +25,7 @@ type Bot struct {
 	logger           zerolog.Logger
 }
 
+// New creates a new bot from a token and logger
 func New(token string, logger zerolog.Logger) (*Bot, error) {
 	b, err := tb.NewBot(tb.Settings{
 		Token:  token,
@@ -41,6 +46,7 @@ func New(token string, logger zerolog.Logger) (*Bot, error) {
 	}, nil
 }
 
+// SetupHandler configures all telegram endpoints
 func (b *Bot) SetupHandlers() {
 	b.catorceBtnMarkup = &tb.ReplyMarkup{}
 	btnCatorce := b.catorceBtnMarkup.Data("CATORCE!", "catorce")
@@ -62,6 +68,7 @@ func (b *Bot) SetupHandlers() {
 	// })
 }
 
+// Load loads bot data from the persistance file
 func (b *Bot) Load() {
 	body, err := ioutil.ReadFile("data/data.json")
 
@@ -88,6 +95,7 @@ func (b *Bot) Load() {
 	}
 }
 
+// Persist persists bot data to the persistance file
 func (b *Bot) Persist() {
 	body, err := json.Marshal(b)
 
@@ -107,22 +115,24 @@ func (b *Bot) Persist() {
 	}
 }
 
+// Dump dumps all bot data to the terminal
 func (b *Bot) Dump() {
 	body, err := json.MarshalIndent(b, "", "  ")
 
 	if err != nil {
-		b.logger.Error().Err(err).Msg("Failed to persist")
+		b.logger.Error().Err(err).Msg("Failed to dump")
 		return
 	}
 
 	fmt.Println(string(body))
 
 	if b.stats.Dump() != nil {
-		b.logger.Error().Err(err).Msg("Failed to persist")
+		b.logger.Error().Err(err).Msg("Failed to dump stats")
 		return
 	}
 }
 
+// Start starts the bot, this is blocking
 func (b *Bot) Start() {
 	b.tb.Start()
 }

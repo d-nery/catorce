@@ -9,6 +9,7 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+// HandleHelp handles /help requests
 func (b *Bot) HandleHelp(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New help request received")
 	helpMsg := `CATORCE!
@@ -31,6 +32,9 @@ Outros comandos:
 	b.tb.Send(m.Chat, helpMsg)
 }
 
+// HandleNew handles /new requests
+// Can only be used in groups
+// Creates a new game if one doesn't exist for the current chat and moves it to LOBBY state
 func (b *Bot) HandleNew(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New game request received")
 
@@ -61,6 +65,8 @@ func (b *Bot) HandleNew(m *tb.Message) {
 	b.tb.Send(m.Chat, "Jogo criado com sucesso!\n/join para entrar.")
 }
 
+// HandleJoin handles /join requests
+// Can only be used in groups during LOBBY state
 func (b *Bot) HandleJoin(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Join request received")
 
@@ -106,6 +112,9 @@ func (b *Bot) HandleJoin(m *tb.Message) {
 	b.tb.Send(m.Chat, out.String())
 }
 
+// HandleStart handles /start requests
+// Can only be used in groups during LOBBY state
+// Starts the game if more than 2 players are registered
 func (b *Bot) HandleStart(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Start request received")
 
@@ -143,6 +152,7 @@ func (b *Bot) HandleStart(m *tb.Message) {
 	b.Persist()
 }
 
+// HandleResult handles inline queries choices
 func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 	b.logger.Info().Int("user_id", c.From.ID).Msg("New Inline Result received")
 	b.logger.Trace().Msgf("CHOSE INLINE => %+v", c)
@@ -308,6 +318,7 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 	b.Persist()
 }
 
+// HandleQuery handles inline queries
 func (b *Bot) HandleQuery(q *tb.Query) {
 	b.logger.Info().Int("user_id", q.From.ID).Msg("New Query received")
 	b.logger.Trace().Msgf("QUERY => %+v", q)
@@ -360,6 +371,7 @@ func (b *Bot) HandleQuery(q *tb.Query) {
 	}
 }
 
+// HandleQuery handles catroce button click
 func (b *Bot) HandleCatorce(c *tb.Callback) {
 	m := c.Message
 	b.logger.Info().Int("user_id", c.Sender.ID).Int64("chat", m.Chat.ID).Msg("New Handle Catorce")
@@ -389,6 +401,8 @@ func (b *Bot) HandleCatorce(c *tb.Callback) {
 	b.Persist()
 }
 
+// HandleStats handles /stats requests
+// Can only be used in groups
 func (b *Bot) HandleStats(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New stats request received")
 
@@ -420,6 +434,8 @@ func (b *Bot) HandleStats(m *tb.Message) {
 	}
 }
 
+// HandleSelfStats handles /statsself requests
+// Can only be used in groups
 func (b *Bot) HandleSelfStats(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New self stats request received")
 

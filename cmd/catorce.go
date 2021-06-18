@@ -15,7 +15,6 @@ func main() {
 	logger := zerolog.New(zerolog.NewConsoleWriter()).
 		With().
 		Timestamp().
-		Caller().
 		Logger().
 		Level(zerolog.InfoLevel)
 
@@ -26,7 +25,11 @@ func main() {
 		return
 	}
 
-	logger.Info().Msg("Initializing bot...")
+	if _, v := os.LookupEnv("VERBOSE"); v {
+		logger = logger.With().Caller().Logger().Level(zerolog.TraceLevel)
+	}
+
+	logger.Info().Msgf("Initializing bot... %s", bot.Version)
 
 	rand.Seed(time.Now().UnixNano())
 
