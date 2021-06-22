@@ -101,9 +101,11 @@ func (ps *PlayerStats) AddPlayerStats(p *game.Player) {
 	}
 
 	// Cumulative Rolling Average
-	ps.AvgResponseTime = time.Duration(
-		(int64(ps.CardsPlayed)*ps.AvgResponseTime.Nanoseconds() + int64(p.CardsPlayed)*p.AvgRespTime.Nanoseconds()) /
-			int64(ps.CardsPlayed+p.CardsPlayed))
+	if ps.CardsPlayed+p.CardsPlayed > 0 {
+		ps.AvgResponseTime = time.Duration(
+			(int64(ps.CardsPlayed)*ps.AvgResponseTime.Nanoseconds() + int64(p.CardsPlayed)*p.AvgRespTime.Nanoseconds()) /
+				int64(ps.CardsPlayed+p.CardsPlayed))
+	}
 
 	ps.CardsPlayed += p.CardsPlayed
 	ps.Points += p.CurrentHandPoints()

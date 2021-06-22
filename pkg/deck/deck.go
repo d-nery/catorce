@@ -11,8 +11,17 @@ type Deck struct {
 	Graveyard []*Card
 }
 
+type DeckConfig struct {
+	AmountOfJoker   int
+	AmountOfDraw4   int
+	AmountOfDraw2   int
+	AmountOfReverse int
+	AmountOfSwap    int
+	AmountOfSkip    int
+}
+
 // New creates a new filled deck
-func New() *Deck {
+func New(hasSwap bool, config DeckConfig) *Deck {
 	// Thre are 108 cards in the official deck -> 25 each color + 8 black
 	deck := Deck{
 		Cards:     make([]*Card, 0, 108),
@@ -25,21 +34,53 @@ func New() *Deck {
 		}
 
 		for _, value := range CardValues {
-			card := NewCard(color, value, SINVALID)
-
-			deck.Cards = append(deck.Cards, &card)
-
-			if value != ZERO {
-				card2 := NewCard(color, value, SINVALID)
-				deck.Cards = append(deck.Cards, &card2)
+			switch value {
+			case ZERO:
+				card := NewCard(color, value, SINVALID)
+				deck.Cards = append(deck.Cards, &card)
+			case DRAW:
+				for i := 0; i < config.AmountOfDraw2; i++ {
+					card := NewCard(color, value, SINVALID)
+					deck.Cards = append(deck.Cards, &card)
+				}
+			case SKIP:
+				for i := 0; i < config.AmountOfSkip; i++ {
+					card := NewCard(color, value, SINVALID)
+					deck.Cards = append(deck.Cards, &card)
+				}
+			case REVERSE:
+				for i := 0; i < config.AmountOfReverse; i++ {
+					card := NewCard(color, value, SINVALID)
+					deck.Cards = append(deck.Cards, &card)
+				}
+			case SWAP:
+				if hasSwap {
+					for i := 0; i < config.AmountOfSwap; i++ {
+						card := NewCard(color, value, SINVALID)
+						deck.Cards = append(deck.Cards, &card)
+					}
+				}
+			default:
+				for i := 0; i < 2; i++ {
+					card := NewCard(color, value, SINVALID)
+					deck.Cards = append(deck.Cards, &card)
+				}
 			}
 		}
 	}
 
 	for _, special := range SpecialCards {
-		for i := 0; i < 4; i++ {
-			card := NewCard(BLACK, VINVALID, special)
-			deck.Cards = append(deck.Cards, &card)
+		switch special {
+		case JOKER:
+			for i := 0; i < config.AmountOfJoker; i++ {
+				card := NewCard(BLACK, VINVALID, special)
+				deck.Cards = append(deck.Cards, &card)
+			}
+		case DFOUR:
+			for i := 0; i < config.AmountOfDraw4; i++ {
+				card := NewCard(BLACK, VINVALID, special)
+				deck.Cards = append(deck.Cards, &card)
+			}
 		}
 	}
 

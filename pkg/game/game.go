@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -23,6 +24,7 @@ type Game struct {
 	DrawCount     int
 	CurrentCard   *deck.Card
 	PlayerCatorce *Player
+	Config        *Config
 
 	TurnStarted time.Time
 
@@ -33,15 +35,16 @@ type Game struct {
 	LargestResponseTime time.Duration
 
 	logger zerolog.Logger
+	mx     sync.Mutex
 }
 
-func New(chat int64, logger zerolog.Logger) *Game {
+func New(chat int64, logger zerolog.Logger, config *Config) *Game {
 	logger.Trace().Int64("chat", chat).Msg("Creating new game")
 	return &Game{
 		Chat:          chat,
 		Players:       nil,
 		Reversed:      false,
-		Deck:          deck.New(),
+		Deck:          deck.New(config.UseSpecialSwap, config.DeckConfig),
 		State:         LOBBY,
 		DrawCount:     0,
 		CurrentCard:   nil,
@@ -50,9 +53,18 @@ func New(chat int64, logger zerolog.Logger) *Game {
 		P2Sequence:    0,
 		P4Played:      0,
 		TurnStarted:   time.Time{},
+		Config:        config,
 
 		logger: logger.With().Int64("game_chat_id", chat).Logger(),
 	}
+}
+
+func (g *Game) Lock() {
+	g.mx.Lock()
+}
+
+func (g *Game) Unlock() {
+	g.mx.Unlock()
 }
 
 func (g *Game) SetLogger(logger zerolog.Logger) {
@@ -83,7 +95,6 @@ func (g *Game) GetPlayer(id int) *Player {
 	g.Players.Do(func(i interface{}) {
 		if i.(*Player).ID == id {
 			player = i.(*Player)
-			return
 		}
 	})
 
@@ -343,6 +354,11 @@ func (g *Game) GetCurrentCard() *deck.Card {
 
 func (g *Game) GetDeck() *deck.Deck {
 	return g.Deck
+}
+
+func (g *Game) ResetDeck() {
+	g.logger.Trace().Msg("Resetting deck")
+	g.Deck = deck.New(g.Config.UseSpecialSwap, g.Config.DeckConfig)
 }
 
 func (g *Game) GetState() GameState {

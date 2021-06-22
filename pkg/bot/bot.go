@@ -17,10 +17,11 @@ var Version string = "DEV"
 // Should only be created via New
 type Bot struct {
 	tb      *tb.Bot
-	Games   map[int64]*game.Game // Maps chats to games
-	Players map[int]int64        // Maps players to chats
-	stats   OverallStats
+	Games   map[int64]*game.Game   // Maps chats to games
+	Players map[int]int64          // Maps players to chats
+	Configs map[int64]*game.Config // Persists chat configs accross games
 
+	stats            OverallStats
 	catorceBtnMarkup *tb.ReplyMarkup
 	logger           zerolog.Logger
 }
@@ -40,6 +41,7 @@ func New(token string, logger zerolog.Logger) (*Bot, error) {
 		tb:      b,
 		Games:   make(map[int64]*game.Game),
 		Players: make(map[int]int64),
+		Configs: make(map[int64]*game.Config),
 		stats:   make(OverallStats),
 
 		logger: logger,
@@ -52,12 +54,14 @@ func (b *Bot) SetupHandlers() {
 	btnCatorce := b.catorceBtnMarkup.Data("CATORCE!", "catorce")
 	b.catorceBtnMarkup.Inline(b.catorceBtnMarkup.Row(btnCatorce))
 
-	b.tb.Handle("/new", b.HandleNew)
+	b.tb.Handle("/new", b.GroupOnly(b.HandleNew))
 	b.tb.Handle("/help", b.HandleHelp)
-	b.tb.Handle("/join", b.HandleJoin)
-	b.tb.Handle("/start", b.HandleStart)
-	b.tb.Handle("/stats", b.HandleStats)
-	b.tb.Handle("/statsself", b.HandleSelfStats)
+	b.tb.Handle("/join", b.GroupOnly(b.HandleJoin))
+	b.tb.Handle("/kill", b.GroupOnly(b.AdminOnly(b.HandleKill)))
+	b.tb.Handle("/config", b.GroupOnly(b.AdminOnly(b.HandleConfig)))
+	b.tb.Handle("/start", b.GroupOnly(b.HandleStart))
+	b.tb.Handle("/stats", b.GroupOnly(b.HandleStats))
+	b.tb.Handle("/statsself", b.GroupOnly(b.HandleSelfStats))
 	b.tb.Handle(tb.OnChosenInlineResult, b.HandleResult)
 	b.tb.Handle(tb.OnQuery, b.HandleQuery)
 	b.tb.Handle(&btnCatorce, b.HandleCatorce)

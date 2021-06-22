@@ -41,13 +41,15 @@ var (
 	DRAW     CardValue = 10
 	REVERSE  CardValue = 11
 	SKIP     CardValue = 12
+	SWAP     CardValue = 13
 	VINVALID CardValue = -1
 )
 
 // Value map from int representation to CardValue
 var CardValues = map[int]CardValue{
 	0: ZERO, 1: ONE, 2: TWO, 3: THREE, 4: FOUR, 5: FIVE,
-	6: SIX, 7: SEVEN, 8: EIGHT, 9: NINE, 10: DRAW, 11: REVERSE, 12: SKIP,
+	6: SIX, 7: SEVEN, 8: EIGHT, 9: NINE, 10: DRAW,
+	11: REVERSE, 12: SKIP, 13: SWAP,
 }
 
 type SpecialCard string
@@ -79,6 +81,7 @@ var STICKER_MAP = map[string]string{
 	"b_10": "CAACAgEAAxkBAAIBTWDJkz_X-fPvBlkEz47pz7PLRXYcAAIcAgACCMhJRkzDHWZ91l6AHwQ",  // Plus 2
 	"b_11": "CAACAgEAAxkBAAIBT2DJk0TjZx-dKLEgwKcu9x4-NvsuAAJRAQACzVlIRizomTmZIIZDHwQ",  // Reverse
 	"b_12": "CAACAgEAAxkBAAIBUWDJk0j-Yffqb5G_tc4CvoZk2VdqAALDAQAC9MhIRt10vM9eHgABQB8E", // Skip
+	"b_13": "CAACAgEAAxkBAAOjYNEPSGpz6YCwKDybWH4LQG6V3sUAAlQBAAJdMYlGcyU99GGajQEfBA", // Swap
 
 	"g_0":  "CAACAgEAAxkBAAIBU2DJk04u41iYCwuVXCmuO9uYydZtAAIuAgACpxxJRoemIok5h-zjHwQ",
 	"g_1":  "CAACAgEAAxkBAAIBVWDJk1TFhr69I9MLbWJF_ANl2AmVAAJ2AQACc1BIRmVGmb9h9PPKHwQ",
@@ -93,6 +96,7 @@ var STICKER_MAP = map[string]string{
 	"g_10": "CAACAgEAAxkBAAIBZ2DJlAsCLArxmM_67olqms11rSueAAJjAQACvN9JRmPqeQ4alEVXHwQ",
 	"g_11": "CAACAgEAAxkBAAIBaWDJlA9pLTnBDXgEzoDnpAxsk_vqAAKLAQACbflJRlba1tDRoDVdHwQ",
 	"g_12": "CAACAgEAAxkBAAIBa2DJlBMOGMXLy4sl6Y4s283ELF2-AAJnAQACrlVRRqWSzLCaD1O7HwQ",
+	"g_13": "CAACAgEAAxkBAAOnYNEPUkhVdjzt4MiqLr52AAHwVGexAAJHAgACdaWQRlt0_um-jmOlHwQ",
 
 	"r_0":  "CAACAgEAAxkBAAIBbWDJlBinj6xQOcYsLhxZQ9S0zXw_AALfAQACRqlJRnltaloUAuTnHwQ",
 	"r_1":  "CAACAgEAAxkBAAIBb2DJlB7p0ezsTVg0qajiyK1l9sOeAAINAgACG3xIRnloTzWOMQ_PHwQ",
@@ -107,6 +111,7 @@ var STICKER_MAP = map[string]string{
 	"r_10": "CAACAgEAAxkBAAIBgWDJlEil9RmSEBHcyRSZOqW_xO19AALSAgAClXhJRsfqg1hETSkCHwQ",
 	"r_11": "CAACAgEAAxkBAAIBg2DJlEx9xLUjgXprtG70Lv9oKIwJAAJYAQACBuRJRg4HpS_jNAy8HwQ",
 	"r_12": "CAACAgEAAxkBAAIBhWDJlFRtbejkpH613o7JgCxJUGmNAAJVAQACZWhIRjJ_m3iP-DNCHwQ",
+	"r_13": "CAACAgEAAxkBAAOpYNEPVFCvdpcQLFqYHVvcNbU--lUAAoMBAAJ_TIlG85v8gye00A0fBA",
 
 	"y_0":  "CAACAgEAAxkBAAIBh2DJlFueKdFyfrypJ0S8oK1BogKGAAJsAQACQEBJRuuk3JI3IBleHwQ",
 	"y_1":  "CAACAgEAAxkBAAIBiWDJlGDkxS5xFXftifc5jMOaE_KgAAJFAQAC3P1JRi30z7KEqiF-HwQ",
@@ -121,6 +126,7 @@ var STICKER_MAP = map[string]string{
 	"y_10": "CAACAgEAAxkBAAIBm2DJlKKai_3QIZ4_uvPXFs3LkgAB-QACJAEAAqvEUEZEIMIQ5r7zDx8E",
 	"y_11": "CAACAgEAAxkBAAIBnWDJlKZJuc-JYNd4Os6Nr57-4V_tAAJWAQACjJdIRid1t1zGmr9SHwQ",
 	"y_12": "CAACAgEAAxkBAAIBn2DJlKzeon9DCvZgqA8RbrCfNFH6AAIzAQACQ6lIRp819aloSOsvHwQ",
+	"y_13": "CAACAgEAAxkBAAOrYNEPVJOaY9qS9H2ExWiTaindFNwAAoQBAAL5WYlGcazfMc55UekfBA",
 
 	"joker": "CAACAgEAAxkBAAIBoWDJlLADWQRStHlsVSe9-T3TEg0gAAInAQACyi9JRr_nqlKaxdDTHwQ",
 	"p4":    "CAACAgEAAxkBAAIBo2DJlLH6hFL4xYJSsrkHI2GJhl2jAAJOAQACP1RJRt3qldF9Fq6VHwQ",
@@ -141,6 +147,7 @@ var FADED_STICKER_MAP = map[string]string{
 	"b_10": "CAACAgEAAxkBAAIBuWDJlPHIQN8k9LV8d2v3CxDvH1xNAAKpAgACOzZRRvbHvnZlll6fHwQ",
 	"b_11": "CAACAgEAAxkBAAIBu2DJlPUc_rMHmYRBBYOkzo8h9qtyAALAAQACfkhIRkg2nKZFHMurHwQ",
 	"b_12": "CAACAgEAAxkBAAIBvWDJlPoJN3QKju94pxcirgdriWkPAAJKAQACFwFQRjjpYXTP9fAGHwQ",
+	"b_13": "CAACAgEAAxkBAAOtYNEPlnbMhnEEgB328t6SDq3iyZ0AAlkAA0h6VwF3eabiEdKiVR8E",
 
 	"g_0":  "CAACAgEAAxkBAAIBv2DJlP_ngxbrshSmKuk_tFn-aXzzAAJEAgACDWZIRm6-8cDsHGs3HwQ",
 	"g_1":  "CAACAgEAAxkBAAIBwWDJlQS9Hn8xzopyImv0S9ssvC9RAALJAQACCypJRj0MLS52SePTHwQ",
@@ -155,6 +162,7 @@ var FADED_STICKER_MAP = map[string]string{
 	"g_10": "CAACAgEAAxkBAAIB02DJlSuXsShEmNeNQ0RsODUmck-2AAJWAQACwotJRoKjHcy4zJohHwQ",
 	"g_11": "CAACAgEAAxkBAAIB1WDJlS-Ms0TG0zCZWdgQ3JUNy0H4AAJuAQACmoJJRpt76k44qpitHwQ",
 	"g_12": "CAACAgEAAxkBAAIB12DJlTW9lYEtAAHejWdWV1vYhdlmLAACWQEAAjCRSUYl_0l7UiHu2x8E",
+	"g_13": "CAACAgEAAxkBAAOtYNEPlnbMhnEEgB328t6SDq3iyZ0AAlkAA0h6VwF3eabiEdKiVR8E",
 
 	"r_0":  "CAACAgEAAxkBAAIB2WDJlTw6EZKkFU-XiD7dWcMFENeMAALfAQACGV1JRtOcHU5WfPfyHwQ",
 	"r_1":  "CAACAgEAAxkBAAIB3WDJlUFcUfG7vVYTnjYCeVnBkkUtAAJmAQACqMRIRq4ofAKjuzu_HwQ",
@@ -169,6 +177,7 @@ var FADED_STICKER_MAP = map[string]string{
 	"r_10": "CAACAgEAAxkBAAIB72DJlWarXMlu5iFT1VunNjF1yNBYAAIwAQACfnJQRlqAgEOsNHAvHwQ",
 	"r_11": "CAACAgEAAxkBAAIB8WDJlWtbEvJZh8NS9NdJsDZiQTCHAAJkAQAC0E5JRv3RAAF-VCTFkx8E",
 	"r_12": "CAACAgEAAxkBAAIB82DJlW_Kf8KzwE8_AlPy9Rl8YtU1AAJXAQACFr5JRqG2ixkAAQ2HBR8E",
+	"r_13": "CAACAgEAAxkBAAOtYNEPlnbMhnEEgB328t6SDq3iyZ0AAlkAA0h6VwF3eabiEdKiVR8E",
 
 	"y_0":  "CAACAgEAAxkBAAIB-WDJlX611n6YhL3sjF_zZfyUosKoAAJ8AQACAiBJRtX_WfVLl8P7HwQ",
 	"y_1":  "CAACAgEAAxkBAAIB-2DJlYPOKLg9L9GF80FZtf-4-LBYAAKIAQACMfhIRunEX8ou07pIHwQ",
@@ -183,6 +192,7 @@ var FADED_STICKER_MAP = map[string]string{
 	"y_10": "CAACAgEAAxkBAAICD2DJla7Ve4____QGyroujc8aCc14AAJ6AQACawNQRgwpXu2oOu60HwQ",
 	"y_11": "CAACAgEAAxkBAAICEWDJla-o4TFmY9cCzNOLuDmS_u7xAAKIAQACWaRIRmL7F6AjiAiiHwQ",
 	"y_12": "CAACAgEAAxkBAAICE2DJlbB0jhy-zVsN3wlzAAFJnULYJQACXAEAAoscSEavb27H3m42pR8E",
+	"y_13": "CAACAgEAAxkBAAOtYNEPlnbMhnEEgB328t6SDq3iyZ0AAlkAA0h6VwF3eabiEdKiVR8E",
 
 	"joker": "CAACAgEAAxkBAAIB9WDJlXOhd2SeQbf5BZRwnL_B534yAAIhAQACbPBJRgW0z399peF_HwQ",
 	"p4":    "CAACAgEAAxkBAAIB92DJlXQ3uZjL0y1E7FG6VZGkuzVUAAJfAgACaJdJRsO9dzLwppwrHwQ",
@@ -306,9 +316,11 @@ func (c *Card) StickerNotAvailable() string {
 
 // CanPlayOnTop checks if c can be played on top of c2
 // If a draw is pending, only other DRAW cards can be played
-func (c *Card) CanPlayOnTop(c2 *Card, draw_pending bool) bool {
+// If stack_p4 is enabled, DFOUR can also be played on top of another DFOUR
+func (c *Card) CanPlayOnTop(c2 *Card, draw_pending, stack_p4 bool) bool {
 	if draw_pending {
-		return c2.Value == DRAW
+		return (c.Value == DRAW && c2.Value == DRAW) ||
+			(stack_p4 && c.Special == DFOUR && c2.Special == DFOUR)
 	}
 
 	return c.IsSpecial() || c.Value == c2.Value || c.Color == c2.Color

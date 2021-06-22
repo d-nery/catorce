@@ -27,9 +27,50 @@ Caso o bot entre em colapso, não se preocupe, o estado do jogo é salvo e ao re
 Outros comandos:
 /stats - Mostra dados sobre os jogos do grupo interessantes
 /statsself - Mostra seus dados apenas
-/kill - F bot (adm only) (NYI)`
+/config - Configurações do jogo nesse chat (adm only)
+/kill - F game (adm only)`
 
 	b.tb.Send(m.Chat, helpMsg)
+}
+
+func (b *Bot) GroupOnly(f func(*tb.Message)) func(m *tb.Message) {
+	return func(m *tb.Message) {
+		b.logger.Trace().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Group middleware accessed")
+
+		if !m.FromGroup() {
+			b.tb.Send(m.Sender, "Esse comando só funciona em grupos!")
+			return
+		}
+
+		f(m)
+	}
+}
+
+func (b *Bot) AdminOnly(f func(*tb.Message)) func(m *tb.Message) {
+	return func(m *tb.Message) {
+		b.logger.Trace().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Admin middleware accessed")
+
+		if m.Private() {
+			f(m)
+			return
+		}
+
+		cm, err := b.tb.ChatMemberOf(m.Chat, m.Sender)
+
+		if err != nil {
+			b.logger.Error().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Err(err).Msg("couldn't find chat member")
+			b.tb.Send(m.Chat, "Esse comando está disponível apenas para administradores")
+			return
+		}
+
+		if cm.Role != tb.Administrator && cm.Role != tb.Creator {
+			b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Str("role", string(cm.Role)).Msg("user is not admin")
+			b.tb.Send(m.Chat, "Esse comando está disponível apenas para administradores")
+			return
+		}
+
+		f(m)
+	}
 }
 
 // HandleNew handles /new requests
@@ -38,18 +79,18 @@ Outros comandos:
 func (b *Bot) HandleNew(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("New game request received")
 
-	if !m.FromGroup() {
-		b.tb.Send(m.Sender, "Esse comando só funciona em grupos!")
-		return
-	}
-
 	if _, ok := b.Games[m.Chat.ID]; ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Game already exists")
 		b.tb.Send(m.Chat, "Já tem um jogo rolando nesse chat!")
 		return
 	}
 
-	b.Games[m.Chat.ID] = game.New(m.Chat.ID, b.logger)
+	if _, ok := b.Configs[m.Chat.ID]; !ok {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No config for current chat, creating")
+		b.Configs[m.Chat.ID] = game.DefaultConfig()
+	}
+
+	b.Games[m.Chat.ID] = game.New(m.Chat.ID, b.logger, b.Configs[m.Chat.ID])
 
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("New game created")
 	b.logger.Trace().Int("games_len", len(b.Games)).Send()
@@ -69,11 +110,6 @@ func (b *Bot) HandleNew(m *tb.Message) {
 // Can only be used in groups during LOBBY state
 func (b *Bot) HandleJoin(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Join request received")
-
-	if !m.FromGroup() {
-		b.tb.Send(m.Sender, "Esse comando só funciona em grupos!")
-		return
-	}
 
 	if _, ok := b.Games[m.Chat.ID]; !ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No game running on this chat")
@@ -118,11 +154,6 @@ func (b *Bot) HandleJoin(m *tb.Message) {
 func (b *Bot) HandleStart(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Start request received")
 
-	if !m.FromGroup() {
-		b.tb.Send(m.Sender, "Esse comando só funciona em grupos!")
-		return
-	}
-
 	if _, ok := b.Games[m.Chat.ID]; !ok {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No game running on this chat")
 		b.tb.Send(m.Chat, "Não há nenhum jogo nesse chat! /new para criar um")
@@ -130,6 +161,9 @@ func (b *Bot) HandleStart(m *tb.Message) {
 	}
 
 	g := b.Games[m.Chat.ID]
+	g.Lock()
+	defer g.Unlock()
+
 	if err := g.FireEvent(&game.EvtStartGame{}); err != nil {
 		b.logger.Error().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Err(err).Send()
 		switch err {
@@ -152,6 +186,180 @@ func (b *Bot) HandleStart(m *tb.Message) {
 	b.Persist()
 }
 
+// HandleKill handles /kill requests
+func (b *Bot) HandleKill(m *tb.Message) {
+	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Kill request received")
+
+	if _, ok := b.Games[m.Chat.ID]; !ok {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No game running on this chat")
+		b.tb.Send(m.Chat, "Não há nenhum jogo nesse chat! /new para criar um")
+		return
+	}
+
+	g := b.Games[m.Chat.ID]
+	g.Lock()
+
+	b.tb.Send(&tb.Chat{ID: m.Chat.ID}, fmt.Sprintf("Jogo finalizado após %d rounds!!", g.Rounds), tb.ModeMarkdown)
+
+	if g.State != game.LOBBY {
+		b.SaveGameStats(g)
+	}
+
+	delete(b.Games, m.Chat.ID)
+	for k := range b.Players {
+		if b.Players[k] == m.Chat.ID {
+			delete(b.Players, k)
+		}
+	}
+	b.logger.Trace().Int("games_len", len(b.Games)).Send()
+
+	b.Persist()
+}
+
+// HandleConfig handles /config requests
+func (b *Bot) HandleConfig(m *tb.Message) {
+	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Config request received")
+
+	g, ok := b.Games[m.Chat.ID]
+
+	if ok && g.State != game.LOBBY {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("There's a game running")
+		b.tb.Send(m.Chat, "Já há um jogo em andamento nesse chat!")
+		return
+	}
+
+	if _, ok := b.Configs[m.Chat.ID]; !ok {
+		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No config for chat, creating")
+		b.Configs[m.Chat.ID] = game.DefaultConfig()
+	}
+
+	var (
+		config = &tb.ReplyMarkup{}
+		choice = &tb.ReplyMarkup{}
+		sumsub = &tb.ReplyMarkup{}
+
+		btnStackP4 = config.Data("Stack +4", "stack_p4")
+		btnSwap    = config.Data("Swap", "swap")
+		btnP2Amt   = config.Data("Qtd +2", "p2_amt")
+		btnSkipAmt = config.Data("Qtd Skip", "skip_amt")
+		btnDone    = config.Data("Pronto", "done")
+
+		btnTrue  = choice.Data("✔", "true")
+		btnFalse = choice.Data("❌", "false")
+
+		btnPlus   = sumsub.Data("➕", "plus")
+		btnMinus  = sumsub.Data("➖", "minus")
+		btnPMDone = sumsub.Data("Feito", "done")
+	)
+
+	config.Inline(
+		config.Row(btnStackP4, btnSwap),
+		config.Row(btnP2Amt, btnSkipAmt),
+		config.Row(btnDone))
+	choice.Inline(choice.Row(btnTrue, btnFalse))
+	sumsub.Inline(
+		sumsub.Row(btnPlus, btnMinus),
+		sumsub.Row(btnPMDone))
+
+	checkSenderAndLockGame := func(f func(c *tb.Callback)) func(c *tb.Callback) {
+		return func(c *tb.Callback) {
+			if c.Sender.ID != m.Sender.ID {
+				return
+			}
+
+			if ok {
+				g.Lock()
+				defer g.Unlock()
+			}
+
+			f(c)
+		}
+	}
+
+	handlerTrueFalse := func(label string, val *bool) func(c *tb.Callback) {
+		return func(c *tb.Callback) {
+			if c.Sender.ID != m.Sender.ID {
+				return
+			}
+
+			b.tb.Handle(&btnTrue, checkSenderAndLockGame(func(c *tb.Callback) {
+				*val = true
+				if ok {
+					g.SetConfig(b.Configs[m.Chat.ID])
+				}
+				b.tb.Edit(c.Message, fmt.Sprintf("%s ✔", label))
+				b.Persist()
+			}))
+
+			b.tb.Handle(&btnFalse, checkSenderAndLockGame(func(c *tb.Callback) {
+				*val = false
+				if ok {
+					g.SetConfig(b.Configs[m.Chat.ID])
+				}
+				b.tb.Edit(c.Message, fmt.Sprintf("%s ❌", label))
+				b.Persist()
+			}))
+
+			b.tb.Edit(c.Message, label, choice)
+		}
+	}
+
+	handlerNumeric := func(label string, val *int) func(c *tb.Callback) {
+		return func(c *tb.Callback) {
+			if c.Sender.ID != m.Sender.ID {
+				return
+			}
+
+			b.tb.Handle(&btnPlus, checkSenderAndLockGame(func(c *tb.Callback) {
+				*val += 1
+				if ok {
+					g.SetConfig(b.Configs[m.Chat.ID])
+				}
+				b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
+				b.Persist()
+			}))
+
+			b.tb.Handle(&btnMinus, checkSenderAndLockGame(func(c *tb.Callback) {
+				if *val > 0 {
+					*val -= 1
+				}
+				if ok {
+					g.SetConfig(b.Configs[m.Chat.ID])
+				}
+				b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
+				b.Persist()
+			}))
+
+			b.tb.Handle(&btnPMDone, func(c *tb.Callback) {
+				if c.Sender.ID != m.Sender.ID {
+					return
+				}
+				b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val))
+			})
+
+			b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
+		}
+	}
+
+	b.tb.Handle(&btnStackP4, handlerTrueFalse("Deve ser permitido empilhar +4?", &b.Configs[m.Chat.ID].CanStackPlus4))
+	b.tb.Handle(&btnSwap, handlerTrueFalse("O jogo deve usar a carta de trocar mãos?", &b.Configs[m.Chat.ID].UseSpecialSwap))
+	b.tb.Handle(&btnP2Amt, handlerNumeric("Quantas cartas +2 devem ter no deck por cor?", &b.Configs[m.Chat.ID].DeckConfig.AmountOfDraw2))
+	b.tb.Handle(&btnSkipAmt, handlerNumeric("Quantas cartas de skip devem ter no deck por cor?", &b.Configs[m.Chat.ID].DeckConfig.AmountOfDraw2))
+
+	b.tb.Handle(&btnDone, func(c *tb.Callback) {
+		if c.Sender.ID != m.Sender.ID {
+			return
+		}
+		b.tb.Edit(c.Message, "Feito!")
+	})
+
+	_, err := b.tb.Send(m.Chat, "Escolha uma opção para mudar", config)
+
+	if err != nil {
+		b.logger.Error().Err(err).Send()
+	}
+}
+
 // HandleResult handles inline queries choices
 func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 	b.logger.Info().Int("user_id", c.From.ID).Msg("New Inline Result received")
@@ -167,6 +375,9 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 	}
 
 	g := b.Games[chat]
+	g.Lock()
+	defer g.Unlock()
+
 	res_id := c.ResultID
 
 	b.logger.Info().Int("user_id", c.From.ID).Int64("chat_id", chat).Str("chosen", res_id).Msg("Chosen result")
@@ -330,7 +541,6 @@ func (b *Bot) HandleQuery(q *tb.Query) {
 	} else if g, ok := b.Games[chat]; !ok {
 		results.AddGameNotStarted()
 		b.logger.Info().Int64("chat_id", chat).Msg("No game running on this chat")
-		return
 	} else {
 		player := g.GetPlayer(q.From.ID)
 
@@ -351,7 +561,7 @@ func (b *Bot) HandleQuery(q *tb.Query) {
 			}
 
 			for _, c := range player.Hand {
-				can_play := c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0)
+				can_play := c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0, g.CanStackPlus4())
 				results.AddCard(g, c, can_play)
 			}
 		} else if g.GetState() == game.CHOOSE_COLOR {
@@ -382,6 +592,9 @@ func (b *Bot) HandleCatorce(c *tb.Callback) {
 	}
 
 	g := b.Games[m.Chat.ID]
+	g.Lock()
+	defer g.Unlock()
+
 	player := g.GetPlayer(c.Sender.ID)
 
 	if err := g.FireEvent(&game.EvtCatorce{Player: player}); err != nil {

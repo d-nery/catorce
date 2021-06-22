@@ -74,6 +74,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 			return ErrNotEnoughPlayers
 		}
 
+		g.ResetDeck()
 		g.Deck.Shuffle()
 		g.ShufflePlayers()
 		g.DistributeCards()
@@ -109,7 +110,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		}
 
 		c := e.Card
-		if !c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0) {
+		if !c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0, g.CanStackPlus4()) {
 			g.logger.Trace().Str("card", c.String()).Str("current", g.GetCurrentCard().String()).Msg("ErrCantPlayCard for EvtCardPlayed")
 			return ErrCantPlayCard
 		}
