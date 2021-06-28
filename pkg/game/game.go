@@ -255,6 +255,15 @@ func (g *Game) PlayCard(c *deck.Card) {
 		jump = true
 	case deck.DRAW:
 		g.DrawCount += 2
+	case deck.SWAP:
+		// Don't enter swap state if the game will be over
+		if len(g.CurrentPlayer().Hand) == 0 {
+			break
+		}
+
+		g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_PLAYER").Msg("Changing state")
+		g.State = CHOOSE_PLAYER
+		return
 	case deck.REVERSE:
 		if g.PlayerAmount() != 2 {
 			g.Reverse()
@@ -309,7 +318,7 @@ func (g *Game) EndTurn(jump bool) bool {
 		return true
 	}
 
-	if len(g.CurrentPlayer().Hand) == 1 {
+	if len(g.CurrentPlayer().Hand) == 1 && g.CurrentCard.Value != deck.SWAP {
 		g.logger.Trace().Int("pid", g.CurrentPlayer().ID).Msg("Player has 1 card left, setting catorce")
 		g.PlayerCatorce = g.CurrentPlayer()
 	}
@@ -324,6 +333,10 @@ func (g *Game) EndTurn(jump bool) bool {
 
 	g.TurnStarted = time.Now()
 	return false
+}
+
+func (g *Game) SwapHands(p1, p2 *Player) {
+	p1.Hand, p2.Hand = p2.Hand, p1.Hand
 }
 
 func (g *Game) Reverse() {

@@ -10,11 +10,12 @@ import (
 type GameState string
 
 const (
-	LOBBY        GameState = "LOBBY"
-	CHOOSE_CARD  GameState = "CHOOSE_CARD"
-	DREW         GameState = "DREW"
-	CHOOSE_COLOR GameState = "CHOOSE_COLOR"
-	CATORCE      GameState = "CATORCE"
+	LOBBY         GameState = "LOBBY"
+	CHOOSE_CARD   GameState = "CHOOSE_CARD"
+	DREW          GameState = "DREW"
+	CHOOSE_COLOR  GameState = "CHOOSE_COLOR"
+	CHOOSE_PLAYER GameState = "CHOOSE_PLAYER"
+	CATORCE       GameState = "CATORCE"
 )
 
 type EvtStartGame struct{}
@@ -35,6 +36,11 @@ type EvtCardPlayed struct {
 type EvtColorChosen struct {
 	Player *Player
 	Color  deck.Color
+}
+
+type EvtPlayerSwapChosen struct {
+	Player *Player
+	Target int
 }
 
 type EvtDrawCard struct {
@@ -157,6 +163,21 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		}
 
 		g.CurrentCard.SetColor(e.Color)
+		if !g.EndTurn(false) {
+			g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
+			g.State = CHOOSE_CARD
+		}
+		return nil
+
+	case *EvtPlayerSwapChosen:
+		if g.State != CHOOSE_PLAYER {
+			g.logger.Trace().Msg("ErrEventNotCovered for EvtColorChosen")
+			return ErrEventNotCovered
+		}
+
+		target := g.GetPlayer(e.Target)
+		g.SwapHands(g.CurrentPlayer(), target)
+
 		if !g.EndTurn(false) {
 			g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
 			g.State = CHOOSE_CARD

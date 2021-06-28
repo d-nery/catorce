@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/d-nery/catorce/pkg/deck"
@@ -228,7 +229,7 @@ func (b *Bot) HandleConfig(m *tb.Message) {
 		return
 	}
 
-	if _, ok := b.Configs[m.Chat.ID]; !ok {
+	if _, found := b.Configs[m.Chat.ID]; !found {
 		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No config for chat, creating")
 		b.Configs[m.Chat.ID] = game.DefaultConfig()
 	}
@@ -323,9 +324,11 @@ func (b *Bot) HandleConfig(m *tb.Message) {
 				if *val > 0 {
 					*val -= 1
 				}
+
 				if ok {
 					g.SetConfig(b.Configs[m.Chat.ID])
 				}
+
 				b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
 				b.Persist()
 			}))
@@ -445,6 +448,21 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 
 		if g.HasPendingCatorce() {
 			b.tb.Send(&tb.Chat{ID: chat}, "Última carta!", b.catorceBtnMarkup)
+		}
+	} else if strings.HasPrefix(res_id, "player:") {
+		id := strings.Split(res_id, ":")[1]
+		playerID, _ := strconv.Atoi(id)
+
+		if err := g.FireEvent(&game.EvtPlayerSwapChosen{Target: playerID, Player: player}); err != nil {
+			b.logger.Error().Err(err).Int64("chat_id", chat).Send()
+			switch err {
+			case game.ErrEventNotCovered:
+			case game.ErrWrongPlayer:
+				return
+			default:
+				b.tb.Send(&c.From, "Erro :(")
+			}
+			return
 		}
 	} else {
 		var card *deck.Card
@@ -567,6 +585,8 @@ func (b *Bot) HandleQuery(q *tb.Query) {
 		} else if g.GetState() == game.CHOOSE_COLOR {
 			results.AddColors()
 			results.AddCurrentPlayerHand(g)
+		} else if g.GetState() == game.CHOOSE_PLAYER {
+			results.AddPlayerList(g)
 		}
 	}
 

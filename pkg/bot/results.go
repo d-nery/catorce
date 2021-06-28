@@ -173,6 +173,30 @@ func (rb *ResultBuilder) AddColors() *ResultBuilder {
 	return rb
 }
 
+// AddPlayerList adds a list of players, except current one
+func (rb *ResultBuilder) AddPlayerList(g *game.Game) *ResultBuilder {
+	g.Players.Do(func(i interface{}) {
+		p := i.(*game.Player)
+
+		if p == g.CurrentPlayer() {
+			return
+		}
+
+		res := &tb.ArticleResult{}
+		res.ID = fmt.Sprintf("player:%d", p.ID)
+		res.Title = p.Name
+		res.Description = fmt.Sprintf("%d cartas", len(p.Hand))
+		res.SetContent(&tb.InputTextMessageContent{
+			Text:      fmt.Sprint("Escolheu ", p.NameWithMention()),
+			ParseMode: tb.ModeMarkdown,
+		})
+
+		rb.results = append(rb.results, res)
+	})
+
+	return rb
+}
+
 // Results returns the underlying results
 func (rb *ResultBuilder) Results() tb.Results {
 	return rb.results
