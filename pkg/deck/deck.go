@@ -9,6 +9,9 @@ import (
 type Deck struct {
 	Cards     []*Card
 	Graveyard []*Card
+
+	Config  DeckConfig
+	HasSwap bool
 }
 
 type DeckConfig struct {
@@ -21,11 +24,22 @@ type DeckConfig struct {
 }
 
 // New creates a new filled deck
-func New(hasSwap bool, config DeckConfig) *Deck {
+func New(hasSwap bool, config DeckConfig, half_deck bool) *Deck {
 	// Thre are 108 cards in the official deck -> 25 each color + 8 black
+	deckBaseSize := 108
+	divider := 1
+
+	if half_deck {
+		deckBaseSize /= 2
+		divider = 2
+	}
+
 	deck := Deck{
-		Cards:     make([]*Card, 0, 108),
-		Graveyard: make([]*Card, 0, 108),
+		Cards:     make([]*Card, 0, deckBaseSize),
+		Graveyard: make([]*Card, 0, deckBaseSize),
+
+		Config:  config,
+		HasSwap: hasSwap,
 	}
 
 	for _, color := range Colors {
@@ -36,32 +50,34 @@ func New(hasSwap bool, config DeckConfig) *Deck {
 		for _, value := range CardValues {
 			switch value {
 			case ZERO:
-				card := NewCard(color, value, SINVALID)
-				deck.Cards = append(deck.Cards, &card)
+				if !half_deck {
+					card := NewCard(color, value, SINVALID)
+					deck.Cards = append(deck.Cards, &card)
+				}
 			case DRAW:
-				for i := 0; i < config.AmountOfDraw2; i++ {
+				for i := 0; i < config.AmountOfDraw2/divider; i++ {
 					card := NewCard(color, value, SINVALID)
 					deck.Cards = append(deck.Cards, &card)
 				}
 			case SKIP:
-				for i := 0; i < config.AmountOfSkip; i++ {
+				for i := 0; i < config.AmountOfSkip/divider; i++ {
 					card := NewCard(color, value, SINVALID)
 					deck.Cards = append(deck.Cards, &card)
 				}
 			case REVERSE:
-				for i := 0; i < config.AmountOfReverse; i++ {
+				for i := 0; i < config.AmountOfReverse/divider; i++ {
 					card := NewCard(color, value, SINVALID)
 					deck.Cards = append(deck.Cards, &card)
 				}
 			case SWAP:
 				if hasSwap {
-					for i := 0; i < config.AmountOfSwap; i++ {
+					for i := 0; i < config.AmountOfSwap/divider; i++ {
 						card := NewCard(color, value, SINVALID)
 						deck.Cards = append(deck.Cards, &card)
 					}
 				}
 			default:
-				for i := 0; i < 2; i++ {
+				for i := 0; i < 2/divider; i++ {
 					card := NewCard(color, value, SINVALID)
 					deck.Cards = append(deck.Cards, &card)
 				}
@@ -72,12 +88,12 @@ func New(hasSwap bool, config DeckConfig) *Deck {
 	for _, special := range SpecialCards {
 		switch special {
 		case JOKER:
-			for i := 0; i < config.AmountOfJoker; i++ {
+			for i := 0; i < config.AmountOfJoker/divider; i++ {
 				card := NewCard(BLACK, VINVALID, special)
 				deck.Cards = append(deck.Cards, &card)
 			}
 		case DFOUR:
-			for i := 0; i < config.AmountOfDraw4; i++ {
+			for i := 0; i < config.AmountOfDraw4/divider; i++ {
 				card := NewCard(BLACK, VINVALID, special)
 				deck.Cards = append(deck.Cards, &card)
 			}
@@ -85,6 +101,13 @@ func New(hasSwap bool, config DeckConfig) *Deck {
 	}
 
 	return &deck
+}
+
+// Merge adds other deck's card to this card
+func (d *Deck) Merge(other *Deck) {
+	for other.Available() > 0 {
+		d.Cards = append(d.Cards, other.Draw())
+	}
 }
 
 // Shuffle shuffles all the cards in the deck
@@ -154,7 +177,8 @@ func (d *Deck) Draw() *Card {
 	}
 
 	if d.Available() == 0 {
-		return nil
+		d.Merge(New(false, d.Config, true))
+		d.Shuffle()
 	}
 
 	card := d.Cards[0]

@@ -44,7 +44,7 @@ func New(chat int64, logger zerolog.Logger, config *Config) *Game {
 		Chat:          chat,
 		Players:       nil,
 		Reversed:      false,
-		Deck:          deck.New(config.UseSpecialSwap, config.DeckConfig),
+		Deck:          nil,
 		State:         LOBBY,
 		DrawCount:     0,
 		CurrentCard:   nil,
@@ -371,7 +371,7 @@ func (g *Game) GetDeck() *deck.Deck {
 
 func (g *Game) ResetDeck() {
 	g.logger.Trace().Msg("Resetting deck")
-	g.Deck = deck.New(g.Config.UseSpecialSwap, g.Config.DeckConfig)
+	g.Deck = deck.New(g.Config.UseSpecialSwap, g.Config.DeckConfig, false)
 }
 
 func (g *Game) GetState() GameState {

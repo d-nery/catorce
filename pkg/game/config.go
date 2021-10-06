@@ -22,7 +22,7 @@ func DefaultConfig() *Config {
 			AmountOfDraw4: 4,
 
 			AmountOfDraw2:   2,
-			AmountOfSwap:    2,
+			AmountOfSwap:    1,
 			AmountOfSkip:    2,
 			AmountOfReverse: 2,
 		},

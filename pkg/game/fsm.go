@@ -96,11 +96,6 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 			return ErrEventNotCovered
 		}
 
-		if g.PlayerAmount() >= 10 {
-			g.logger.Trace().Msg("ErrMaxPlayers for EvtAddPlayer")
-			return ErrMaxPlayers
-		}
-
 		g.AddPlayer(e.Player)
 		return nil
 
