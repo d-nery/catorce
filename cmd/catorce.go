@@ -1,9 +1,7 @@
 package main
 
 import (
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
@@ -30,8 +28,6 @@ func main() {
 	}
 
 	logger.Info().Msgf("Initializing bot... %s", bot.Version)
-
-	rand.Seed(time.Now().UnixNano())
 
 	b, err := bot.New(os.Getenv("TELEGRAM_TOKEN"), logger)
 

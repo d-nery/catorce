@@ -175,11 +175,9 @@ func (rb *ResultBuilder) AddColors() *ResultBuilder {
 
 // AddPlayerList adds a list of players, except current one
 func (rb *ResultBuilder) AddPlayerList(g *game.Game) *ResultBuilder {
-	g.Players.Do(func(i interface{}) {
-		p := i.(*game.Player)
-
+	for _, p := range g.Players {
 		if p == g.CurrentPlayer() {
-			return
+			continue
 		}
 
 		res := &tb.ArticleResult{}
@@ -192,7 +190,7 @@ func (rb *ResultBuilder) AddPlayerList(g *game.Game) *ResultBuilder {
 		})
 
 		rb.results = append(rb.results, res)
-	})
+	}
 
 	return rb
 }

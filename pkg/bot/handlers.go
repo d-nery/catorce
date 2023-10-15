@@ -17,8 +17,8 @@ func (b *Bot) HandleHelp(m *tb.Message) {
 
 2. No grupo, comece uma nova partida com /new
 C. Para se juntar a uma partida use /join
-4ª O jogo deve ter pelo menos 2 e no máximo 10 jogadores antes de começar
-* Para jogar. Digite @catorce_uno_bot na caixa de mensagens ou clique no via @catorce_uno_bot ao lado das mensagens. Aguarde um pouco e você verá suas cartas. Cartas cinzas não podem ser jogadas. Se você não estiver na sua vez, todas as cartas serão cinzas.
+4ª O jogo deve ter pelo menos 2 jogadores antes de começar
+* Para jogar. Digite @catorce_uno_bot na caixa de mensagens ou clique no "via @catorce_uno_bot" ao lado das mensagens. Aguarde um pouco e você verá suas cartas. Cartas cinzas não podem ser jogadas. Se você não estiver na sua vez, todas as cartas serão cinzas.
 110 Selecionar uma carta cinza irá mostrar a atual situação do jogo.
 7- Ao ficar com uma unica carta sobrando, lembre-se de apertar no CATORCE!
 
@@ -221,142 +221,142 @@ func (b *Bot) HandleKill(m *tb.Message) {
 func (b *Bot) HandleConfig(m *tb.Message) {
 	b.logger.Info().Int64("chat_id", m.Chat.ID).Int("user_id", m.Sender.ID).Msg("Config request received")
 
-	g, ok := b.Games[m.Chat.ID]
+	// g, ok := b.Games[m.Chat.ID]
 
-	if ok && g.State != game.LOBBY {
-		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("There's a game running")
-		b.tb.Send(m.Chat, "Já há um jogo em andamento nesse chat!")
-		return
-	}
+	// if ok && g.State != game.LOBBY {
+	// 	b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("There's a game running")
+	// 	b.tb.Send(m.Chat, "Já há um jogo em andamento nesse chat!")
+	// 	return
+	// }
 
-	if _, found := b.Configs[m.Chat.ID]; !found {
-		b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No config for chat, creating")
-		b.Configs[m.Chat.ID] = game.DefaultConfig()
-	}
+	// if _, found := b.Configs[m.Chat.ID]; !found {
+	// 	b.logger.Info().Int64("chat_id", m.Chat.ID).Msg("No config for chat, creating")
+	// 	b.Configs[m.Chat.ID] = game.DefaultConfig()
+	// }
 
-	var (
-		config = &tb.ReplyMarkup{}
-		choice = &tb.ReplyMarkup{}
-		sumsub = &tb.ReplyMarkup{}
+	// var (
+	// 	config = &tb.ReplyMarkup{}
+	// 	choice = &tb.ReplyMarkup{}
+	// 	sumsub = &tb.ReplyMarkup{}
 
-		btnStackP4 = config.Data("Stack +4", "stack_p4")
-		btnSwap    = config.Data("Swap", "swap")
-		btnP2Amt   = config.Data("Qtd +2", "p2_amt")
-		btnSkipAmt = config.Data("Qtd Skip", "skip_amt")
-		btnDone    = config.Data("Pronto", "done")
+	// 	btnStackP4 = config.Data("Stack +4", "stack_p4")
+	// 	btnSwap    = config.Data("Swap", "swap")
+	// 	btnP2Amt   = config.Data("Qtd +2", "p2_amt")
+	// 	btnSkipAmt = config.Data("Qtd Skip", "skip_amt")
+	// 	btnDone    = config.Data("Pronto", "done")
 
-		btnTrue  = choice.Data("✔", "true")
-		btnFalse = choice.Data("❌", "false")
+	// 	btnTrue  = choice.Data("✔", "true")
+	// 	btnFalse = choice.Data("❌", "false")
 
-		btnPlus   = sumsub.Data("➕", "plus")
-		btnMinus  = sumsub.Data("➖", "minus")
-		btnPMDone = sumsub.Data("Feito", "done")
-	)
+	// 	btnPlus   = sumsub.Data("➕", "plus")
+	// 	btnMinus  = sumsub.Data("➖", "minus")
+	// 	btnPMDone = sumsub.Data("Feito", "done")
+	// )
 
-	config.Inline(
-		config.Row(btnStackP4, btnSwap),
-		config.Row(btnP2Amt, btnSkipAmt),
-		config.Row(btnDone))
-	choice.Inline(choice.Row(btnTrue, btnFalse))
-	sumsub.Inline(
-		sumsub.Row(btnPlus, btnMinus),
-		sumsub.Row(btnPMDone))
+	// config.Inline(
+	// 	config.Row(btnStackP4, btnSwap),
+	// 	config.Row(btnP2Amt, btnSkipAmt),
+	// 	config.Row(btnDone))
+	// choice.Inline(choice.Row(btnTrue, btnFalse))
+	// sumsub.Inline(
+	// 	sumsub.Row(btnPlus, btnMinus),
+	// 	sumsub.Row(btnPMDone))
 
-	checkSenderAndLockGame := func(f func(c *tb.Callback)) func(c *tb.Callback) {
-		return func(c *tb.Callback) {
-			if c.Sender.ID != m.Sender.ID {
-				return
-			}
+	// checkSenderAndLockGame := func(f func(c *tb.Callback)) func(c *tb.Callback) {
+	// 	return func(c *tb.Callback) {
+	// 		if c.Sender.ID != m.Sender.ID {
+	// 			return
+	// 		}
 
-			if ok {
-				g.Lock()
-				defer g.Unlock()
-			}
+	// 		if ok {
+	// 			g.Lock()
+	// 			defer g.Unlock()
+	// 		}
 
-			f(c)
-		}
-	}
+	// 		f(c)
+	// 	}
+	// }
 
-	handlerTrueFalse := func(label string, val *bool) func(c *tb.Callback) {
-		return func(c *tb.Callback) {
-			if c.Sender.ID != m.Sender.ID {
-				return
-			}
+	// handlerTrueFalse := func(label string, val *bool) func(c *tb.Callback) {
+	// 	return func(c *tb.Callback) {
+	// 		if c.Sender.ID != m.Sender.ID {
+	// 			return
+	// 		}
 
-			b.tb.Handle(&btnTrue, checkSenderAndLockGame(func(c *tb.Callback) {
-				*val = true
-				if ok {
-					g.SetConfig(b.Configs[m.Chat.ID])
-				}
-				b.tb.Edit(c.Message, fmt.Sprintf("%s ✔", label))
-				b.Persist()
-			}))
+	// 		b.tb.Handle(&btnTrue, checkSenderAndLockGame(func(c *tb.Callback) {
+	// 			*val = true
+	// 			if ok {
+	// 				g.SetConfig(b.Configs[m.Chat.ID])
+	// 			}
+	// 			b.tb.Edit(c.Message, fmt.Sprintf("%s ✔", label))
+	// 			b.Persist()
+	// 		}))
 
-			b.tb.Handle(&btnFalse, checkSenderAndLockGame(func(c *tb.Callback) {
-				*val = false
-				if ok {
-					g.SetConfig(b.Configs[m.Chat.ID])
-				}
-				b.tb.Edit(c.Message, fmt.Sprintf("%s ❌", label))
-				b.Persist()
-			}))
+	// 		b.tb.Handle(&btnFalse, checkSenderAndLockGame(func(c *tb.Callback) {
+	// 			*val = false
+	// 			if ok {
+	// 				g.SetConfig(b.Configs[m.Chat.ID])
+	// 			}
+	// 			b.tb.Edit(c.Message, fmt.Sprintf("%s ❌", label))
+	// 			b.Persist()
+	// 		}))
 
-			b.tb.Edit(c.Message, label, choice)
-		}
-	}
+	// 		b.tb.Edit(c.Message, label, choice)
+	// 	}
+	// }
 
-	handlerNumeric := func(label string, val *int) func(c *tb.Callback) {
-		return func(c *tb.Callback) {
-			if c.Sender.ID != m.Sender.ID {
-				return
-			}
+	// handlerNumeric := func(label string, val *int) func(c *tb.Callback) {
+	// 	return func(c *tb.Callback) {
+	// 		if c.Sender.ID != m.Sender.ID {
+	// 			return
+	// 		}
 
-			b.tb.Handle(&btnPlus, checkSenderAndLockGame(func(c *tb.Callback) {
-				*val += 1
-				if ok {
-					g.SetConfig(b.Configs[m.Chat.ID])
-				}
-				b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
-				b.Persist()
-			}))
+	// 		b.tb.Handle(&btnPlus, checkSenderAndLockGame(func(c *tb.Callback) {
+	// 			*val += 1
+	// 			if ok {
+	// 				g.SetConfig(b.Configs[m.Chat.ID])
+	// 			}
+	// 			b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
+	// 			b.Persist()
+	// 		}))
 
-			b.tb.Handle(&btnMinus, checkSenderAndLockGame(func(c *tb.Callback) {
-				if *val > 0 {
-					*val -= 1
-				}
+	// 		b.tb.Handle(&btnMinus, checkSenderAndLockGame(func(c *tb.Callback) {
+	// 			if *val > 0 {
+	// 				*val -= 1
+	// 			}
 
-				if ok {
-					g.SetConfig(b.Configs[m.Chat.ID])
-				}
+	// 			if ok {
+	// 				g.SetConfig(b.Configs[m.Chat.ID])
+	// 			}
 
-				b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
-				b.Persist()
-			}))
+	// 			b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
+	// 			b.Persist()
+	// 		}))
 
-			b.tb.Handle(&btnPMDone, func(c *tb.Callback) {
-				if c.Sender.ID != m.Sender.ID {
-					return
-				}
-				b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val))
-			})
+	// 		b.tb.Handle(&btnPMDone, func(c *tb.Callback) {
+	// 			if c.Sender.ID != m.Sender.ID {
+	// 				return
+	// 			}
+	// 			b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val))
+	// 		})
 
-			b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
-		}
-	}
+	// 		b.tb.Edit(c.Message, fmt.Sprintf("%s\nAtual: %d\nPadrão: 2", label, *val), sumsub)
+	// 	}
+	// }
 
-	b.tb.Handle(&btnStackP4, handlerTrueFalse("Deve ser permitido empilhar +4?", &b.Configs[m.Chat.ID].CanStackPlus4))
-	b.tb.Handle(&btnSwap, handlerTrueFalse("O jogo deve usar a carta de trocar mãos?", &b.Configs[m.Chat.ID].UseSpecialSwap))
-	b.tb.Handle(&btnP2Amt, handlerNumeric("Quantas cartas +2 devem ter no deck por cor?", &b.Configs[m.Chat.ID].DeckConfig.AmountOfDraw2))
-	b.tb.Handle(&btnSkipAmt, handlerNumeric("Quantas cartas de skip devem ter no deck por cor?", &b.Configs[m.Chat.ID].DeckConfig.AmountOfDraw2))
+	// b.tb.Handle(&btnStackP4, handlerTrueFalse("Deve ser permitido empilhar +4?", &b.Configs[m.Chat.ID].CanStackPlus4))
+	// b.tb.Handle(&btnSwap, handlerTrueFalse("O jogo deve usar a carta de trocar mãos?", &b.Configs[m.Chat.ID].UseSpecialSwap))
+	// b.tb.Handle(&btnP2Amt, handlerNumeric("Quantas cartas +2 devem ter no deck por cor?", &b.Configs[m.Chat.ID].DeckConfig.AmountOfDraw2))
+	// b.tb.Handle(&btnSkipAmt, handlerNumeric("Quantas cartas de skip devem ter no deck por cor?", &b.Configs[m.Chat.ID].DeckConfig.AmountOfDraw2))
 
-	b.tb.Handle(&btnDone, func(c *tb.Callback) {
-		if c.Sender.ID != m.Sender.ID {
-			return
-		}
-		b.tb.Edit(c.Message, "Feito!")
-	})
+	// b.tb.Handle(&btnDone, func(c *tb.Callback) {
+	// 	if c.Sender.ID != m.Sender.ID {
+	// 		return
+	// 	}
+	// 	b.tb.Edit(c.Message, "Feito!")
+	// })
 
-	_, err := b.tb.Send(m.Chat, "Escolha uma opção para mudar", config)
+	_, err := b.tb.Send(m.Chat, "NYI")
 
 	if err != nil {
 		b.logger.Error().Err(err).Send()
@@ -394,7 +394,7 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 	player := g.GetPlayer(c.From.ID)
 
 	if res_id == "draw" {
-		catorce := g.CatorcePlayer()
+		catorce := g.PlayerCatorce
 		if err := g.FireEvent(&game.EvtDrawCard{Player: player}); err != nil {
 			b.logger.Error().Err(err).Int64("chat_id", chat).Send()
 			switch err {
@@ -409,11 +409,11 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 
 		// If there was a catorce player and the cards were succesfully drawn
 		// then the catorce'd player received four cards, we need to warn them
-		if catorce != nil {
+		if catorce != 0 {
 			b.tb.Send(&tb.Chat{ID: chat},
 				fmt.Sprintf(
 					"Oh no! 😱\n%s não chamou CATORCE! a tempo e pegou 4 cartas!",
-					catorce.NameWithMention(),
+					g.GetPlayer(catorce).NameWithMention(),
 				),
 				tb.ModeMarkdown,
 			)
@@ -480,7 +480,7 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 			return
 		}
 
-		catorce := g.CatorcePlayer()
+		catorce := g.PlayerCatorce
 		if err := g.FireEvent(&game.EvtCardPlayed{Card: card, Player: player}); err != nil {
 			b.logger.Error().Err(err).Int64("chat_id", chat).Send()
 			switch err {
@@ -502,11 +502,11 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 
 		// If there was a catorce player and the card was succesfully played
 		// then the catorce'd player received four cards, we need to warn them
-		if catorce != nil {
+		if catorce != 0 {
 			b.tb.Send(&tb.Chat{ID: chat},
 				fmt.Sprintf(
 					"Oh no! 😱\n%s não chamou CATORCE! a tempo e pegou 4 cartas!",
-					catorce.NameWithMention(),
+					g.GetPlayer(catorce).NameWithMention(),
 				),
 				tb.ModeMarkdown,
 			)
@@ -579,7 +579,7 @@ func (b *Bot) HandleQuery(q *tb.Query) {
 			}
 
 			for _, c := range player.Hand {
-				can_play := c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0, g.CanStackPlus4())
+				can_play := c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0, g.Config.StackConfig)
 				results.AddCard(g, c, can_play)
 			}
 		} else if g.GetState() == game.CHOOSE_COLOR {

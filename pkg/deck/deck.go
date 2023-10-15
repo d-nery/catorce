@@ -1,6 +1,7 @@
 package deck
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 )
@@ -10,104 +11,47 @@ type Deck struct {
 	Cards     []*Card
 	Graveyard []*Card
 
-	Config  DeckConfig
-	HasSwap bool
+	Config DeckConfig
+}
+
+type CardData struct {
+	Color
+	CardType
+	Value int
 }
 
 type DeckConfig struct {
-	AmountOfJoker   int
-	AmountOfDraw4   int
-	AmountOfDraw2   int
-	AmountOfReverse int
-	AmountOfSwap    int
-	AmountOfSkip    int
+	Cards map[CardData]int
 }
 
 // New creates a new filled deck
-func New(hasSwap bool, config DeckConfig, half_deck bool) *Deck {
-	// Thre are 108 cards in the official deck -> 25 each color + 8 black
-	deckBaseSize := 108
+func New(config DeckConfig, half_deck bool) *Deck {
 	divider := 1
 
 	if half_deck {
-		deckBaseSize /= 2
 		divider = 2
 	}
 
 	deck := Deck{
-		Cards:     make([]*Card, 0, deckBaseSize),
-		Graveyard: make([]*Card, 0, deckBaseSize),
+		Cards:     make([]*Card, 0),
+		Graveyard: make([]*Card, 0),
 
-		Config:  config,
-		HasSwap: hasSwap,
+		Config: config,
 	}
 
-	for _, color := range Colors {
-		if color == BLACK {
-			continue
-		}
-
-		for _, value := range CardValues {
-			switch value {
-			case ZERO:
-				if !half_deck {
-					card := NewCard(color, value, SINVALID)
-					deck.Cards = append(deck.Cards, &card)
-				}
-			case DRAW:
-				for i := 0; i < config.AmountOfDraw2/divider; i++ {
-					card := NewCard(color, value, SINVALID)
-					deck.Cards = append(deck.Cards, &card)
-				}
-			case SKIP:
-				for i := 0; i < config.AmountOfSkip/divider; i++ {
-					card := NewCard(color, value, SINVALID)
-					deck.Cards = append(deck.Cards, &card)
-				}
-			case REVERSE:
-				for i := 0; i < config.AmountOfReverse/divider; i++ {
-					card := NewCard(color, value, SINVALID)
-					deck.Cards = append(deck.Cards, &card)
-				}
-			case SWAP:
-				if hasSwap {
-					for i := 0; i < config.AmountOfSwap/divider; i++ {
-						card := NewCard(color, value, SINVALID)
-						deck.Cards = append(deck.Cards, &card)
-					}
-				}
-			default:
-				for i := 0; i < 2/divider; i++ {
-					card := NewCard(color, value, SINVALID)
-					deck.Cards = append(deck.Cards, &card)
-				}
-			}
-		}
-	}
-
-	for _, special := range SpecialCards {
-		switch special {
-		case JOKER:
-			for i := 0; i < config.AmountOfJoker/divider; i++ {
-				card := NewCard(BLACK, VINVALID, special)
-				deck.Cards = append(deck.Cards, &card)
-			}
-		case DFOUR:
-			for i := 0; i < config.AmountOfDraw4/divider; i++ {
-				card := NewCard(BLACK, VINVALID, special)
-				deck.Cards = append(deck.Cards, &card)
-			}
+	for card, amount := range config.Cards {
+		for i := 0; i < amount/divider; i++ {
+			deck.Cards = append(deck.Cards, NewCard(card.Color, card.CardType, card.Value))
 		}
 	}
 
 	return &deck
 }
 
-// Merge adds other deck's card to this card
+// Merge adds other deck's cards to this deck
 func (d *Deck) Merge(other *Deck) {
-	for other.Available() > 0 {
-		d.Cards = append(d.Cards, other.Draw())
-	}
+	d.Cards = append(d.Cards, other.Cards...)
+	other.Cards = nil
 }
 
 // Shuffle shuffles all the cards in the deck
@@ -142,18 +86,15 @@ func (d *Deck) Discarded() int {
 	return len(d.Graveyard)
 }
 
-// FillFromGraveyard removes all cards from the graveyard and puts the back on the deck
+// FillFromGraveyard removes all cards from the graveyard and puts them back on the deck
 // The deck is shuffled afterwards
 func (d *Deck) FillFromGraveyard() {
 	if d.Discarded() == 0 {
 		return
 	}
 
-	for len(d.Graveyard) > 0 {
-		card := d.Graveyard[0]
-		d.Cards = append(d.Cards, card)
-		d.Graveyard = d.Graveyard[1:]
-	}
+	d.Cards = append(d.Cards, d.Graveyard...)
+	d.Graveyard = []*Card{}
 
 	d.Shuffle()
 }
@@ -170,18 +111,61 @@ func (d *Deck) Discard(c *Card) {
 
 // Draw removes a card from the deck and returns it
 // If the deck is empty, it tries to fill itself from the graveyard
-// If the deck is still empty, return nil
+// If the deck is still empty, it refills itself with a half deck, increase the total amount of cards in game
 func (d *Deck) Draw() *Card {
 	if d.Available() == 0 {
 		d.FillFromGraveyard()
 	}
 
 	if d.Available() == 0 {
-		d.Merge(New(false, d.Config, true))
+		d.Merge(New(d.Config, true))
 		d.Shuffle()
 	}
 
 	card := d.Cards[0]
 	d.Cards = d.Cards[1:]
 	return card
+}
+
+func (d *DeckConfig) MarshalJSON() ([]byte, error) {
+	var cardData = []struct {
+		Color
+		CardType
+		Value  int
+		Amount int
+	}{}
+
+	for k, v := range d.Cards {
+		cardData = append(cardData, struct {
+			Color
+			CardType
+			Value  int
+			Amount int
+		}{
+			k.Color, k.CardType, k.Value, v,
+		})
+	}
+
+	return json.Marshal(&cardData)
+}
+
+func (d *DeckConfig) UnmarshalJSON(data []byte) error {
+	var aux = []struct {
+		Color
+		CardType
+		Value  int
+		Amount int
+	}{}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	d.Cards = map[CardData]int{}
+
+	for _, e := range aux {
+		d.Cards[CardData{e.Color, e.CardType, e.Value}] = e.Amount
+	}
+
+	return nil
 }

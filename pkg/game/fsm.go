@@ -111,7 +111,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		}
 
 		c := e.Card
-		if !c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0, g.CanStackPlus4()) {
+		if !c.CanPlayOnTop(g.GetCurrentCard(), g.DrawCounter() > 0, g.Config.StackConfig) {
 			g.logger.Trace().Str("card", c.String()).Str("current", g.GetCurrentCard().String()).Msg("ErrCantPlayCard for EvtCardPlayed")
 			return ErrCantPlayCard
 		}
@@ -190,12 +190,12 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 			return ErrNoCatorcePending
 		}
 
-		if e.Player != g.CatorcePlayer() {
+		if e.Player.ID != g.PlayerCatorce {
 			g.logger.Trace().Msg("ErrWrongPlayer for EvtCatorce")
 			return ErrWrongPlayer
 		}
 
-		g.PlayerCatorce = nil
+		g.PlayerCatorce = 0
 		return nil
 
 	default:

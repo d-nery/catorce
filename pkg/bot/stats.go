@@ -3,7 +3,7 @@ package bot
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -43,31 +43,31 @@ type PlayerStats struct {
 
 // ReadStatsFromFile loads OverallStats from a .json file
 func ReadStatsFromFile(file string) (OverallStats, error) {
-	os := OverallStats{}
-	body, err := ioutil.ReadFile(file)
+	s := OverallStats{}
+	body, err := os.ReadFile(file)
 
 	if err != nil {
-		return os, err
+		return s, err
 	}
 
-	err = json.Unmarshal(body, &os)
-	return os, err
+	err = json.Unmarshal(body, &s)
+	return s, err
 }
 
 // Persist persists OverallStats into a .json file
-func (os *OverallStats) Persist(file string) error {
-	body, err := json.Marshal(os)
+func (s *OverallStats) Persist(file string) error {
+	body, err := json.Marshal(s)
 
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(file, body, 0644)
+	return os.WriteFile(file, body, 0644)
 }
 
 // Persist dumps OverallStats to the terminal
-func (os *OverallStats) Dump() error {
-	body, err := json.MarshalIndent(os, "", "  ")
+func (s *OverallStats) Dump() error {
+	body, err := json.MarshalIndent(s, "", "  ")
 
 	if err != nil {
 		return err

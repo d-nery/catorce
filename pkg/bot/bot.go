@@ -3,7 +3,7 @@ package bot
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/d-nery/catorce/pkg/game"
@@ -74,7 +74,7 @@ func (b *Bot) SetupHandlers() {
 
 // Load loads bot data from the persistance file
 func (b *Bot) Load() {
-	body, err := ioutil.ReadFile("data/data.json")
+	body, err := os.ReadFile("data/data.json")
 
 	if err != nil {
 		b.logger.Error().Err(err).Msg("Failed to load")
@@ -108,7 +108,7 @@ func (b *Bot) Persist() {
 		return
 	}
 
-	err = ioutil.WriteFile("data/data.json", body, 0644)
+	err = os.WriteFile("data/data.json", body, 0644)
 
 	if err != nil {
 		b.logger.Error().Err(err).Msg("Failed to persist")
