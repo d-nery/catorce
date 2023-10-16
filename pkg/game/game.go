@@ -305,8 +305,12 @@ func (g *Game) SwapHands(p1, p2 *Player) {
 }
 
 func (g *Game) Reverse() {
+	// We didn't end the turn yet, so the current player must still be the current player
 	g.logger.Trace().Msg("Reversing game")
+	p := g.Players[0]
+	g.Players = g.Players[1:]
 	slices.Reverse(g.Players)
+	g.Players = append([]*Player{p}, g.Players...)
 }
 
 func (g *Game) ChooseColor(c deck.Color) {
