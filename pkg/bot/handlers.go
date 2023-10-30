@@ -496,6 +496,7 @@ func (b *Bot) HandleResult(c *tb.ChosenInlineResult) {
 			return
 		}
 
+		b.logger.Debug().Str("card", card.String()).Msg("Card played")
 		if g.HasPendingCatorce() {
 			b.tb.Send(&tb.Chat{ID: chat}, "Última carta!", b.catorceBtnMarkup)
 		}

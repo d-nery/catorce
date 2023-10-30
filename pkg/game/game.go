@@ -149,14 +149,14 @@ func (g *Game) PlayFirstCard() {
 	}
 
 	if g.CurrentCard.Type.Has(deck.SKIP) {
-		g.EndTurn(false)
+		g.EndTurn(false, CHOOSE_CARD)
 	}
 
 	if g.CurrentCard.Type.Has(deck.REVERSE) {
 		if g.PlayerAmount() != 2 {
 			g.Reverse()
 		} else {
-			g.EndTurn(false)
+			g.EndTurn(false, CHOOSE_CARD)
 		}
 	}
 
@@ -204,25 +204,24 @@ func (g *Game) PlayCard(c *deck.Card) {
 	g.CurrentCard = c
 
 	jump := false
+	nextState := CHOOSE_CARD
+
+	if c.Type.Has(deck.DRAW) {
+		g.DrawCount += c.Value
+	}
 
 	if c.Type.Has(deck.WILD) {
-		g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_COLOR").Msg("Changing state")
-		g.State = CHOOSE_COLOR
+		nextState = CHOOSE_COLOR
 	}
 
 	if c.Type.Has(deck.SKIP) {
 		jump = true
 	}
 
-	if c.Type.Has(deck.DRAW) {
-		g.DrawCount += c.Value
-	}
-
 	if c.Type.Has(deck.SWAP) {
 		// Don't enter swap state if the game will be over
 		if len(g.CurrentPlayer().Hand) != 0 {
-			g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_PLAYER").Msg("Changing state")
-			g.State = CHOOSE_PLAYER // TODO: Possible conflict in states if a card is a WILD SWAP, check
+			nextState = CHOOSE_PLAYER // TODO: Possible conflict in states if a card is a WILD SWAP, check
 		}
 	}
 
@@ -236,7 +235,7 @@ func (g *Game) PlayCard(c *deck.Card) {
 
 	// TODO: SKIPALL DISCARDALL etc
 
-	g.EndTurn(jump)
+	g.EndTurn(jump, nextState)
 }
 
 func (g *Game) DrawCard() {
@@ -270,11 +269,11 @@ func (g *Game) DrawCard() {
 	}
 
 	g.DrawCount = 0
-	g.EndTurn(false)
+	g.EndTurn(false, CHOOSE_CARD)
 }
 
 // EndTurn finishes the turn, returns true if the game is over
-func (g *Game) EndTurn(skip bool) bool {
+func (g *Game) EndTurn(skip bool, nextState GameState) bool {
 	g.Rounds += 1
 	g.logger.Trace().Int("pid", g.CurrentPlayer().ID).Int("rounds", g.Rounds).Msg("Ending turn")
 	if len(g.CurrentPlayer().Hand) == 0 {
@@ -288,13 +287,15 @@ func (g *Game) EndTurn(skip bool) bool {
 		g.PlayerCatorce = g.CurrentPlayer().ID
 	}
 
-	g.NextPlayer()
-	if skip {
+	if nextState == CHOOSE_CARD {
 		g.NextPlayer()
+		if skip {
+			g.NextPlayer()
+		}
 	}
 
-	g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
-	g.State = CHOOSE_CARD
+	g.logger.Debug().Str("from", string(g.State)).Str("to", string(nextState)).Msg("Changing state")
+	g.State = nextState
 
 	g.TurnStarted = time.Now()
 	return false
@@ -318,7 +319,7 @@ func (g *Game) ChooseColor(c deck.Color) {
 	// affects special cards, so we don't see it as they are always black
 	g.logger.Trace().Str("color", string(c)).Msg("Setting card color")
 	g.CurrentCard.SetColor(c)
-	g.EndTurn(false)
+	g.EndTurn(false, CHOOSE_CARD)
 }
 
 func (g *Game) NextPlayer() {

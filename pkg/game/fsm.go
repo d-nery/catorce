@@ -143,7 +143,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 			return ErrEventNotCovered
 		}
 
-		g.EndTurn(false)
+		g.EndTurn(false, CHOOSE_CARD)
 		return nil
 
 	case *EvtColorChosen:
@@ -158,10 +158,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		}
 
 		g.CurrentCard.SetColor(e.Color)
-		if !g.EndTurn(false) {
-			g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
-			g.State = CHOOSE_CARD
-		}
+		g.EndTurn(false, CHOOSE_CARD)
 		return nil
 
 	case *EvtPlayerSwapChosen:
@@ -173,10 +170,7 @@ func (g *Game) FireEvent(evt interface{}) EventError {
 		target := g.GetPlayer(e.Target)
 		g.SwapHands(g.CurrentPlayer(), target)
 
-		if !g.EndTurn(false) {
-			g.logger.Debug().Str("from", string(g.State)).Str("to", "CHOOSE_CARD").Msg("Changing state")
-			g.State = CHOOSE_CARD
-		}
+		g.EndTurn(false, CHOOSE_CARD)
 		return nil
 
 	case *EvtCatorce:
